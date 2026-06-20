@@ -4,6 +4,9 @@ import {
   Breadcrumb,
   BreadcrumbItem,
   Button,
+  Card,
+  CardBody,
+  CardTitle,
   Content,
   DescriptionList,
   DescriptionListDescription,
@@ -18,7 +21,11 @@ import {
   Label,
   PageSection,
 } from '@patternfly/react-core';
-import { ExternalLinkAltIcon } from '@patternfly/react-icons';
+import {
+  CubeIcon,
+  ExternalLinkAltIcon,
+  GithubIcon,
+} from '@patternfly/react-icons';
 import { getHarnessById } from '@client/data/harnesses';
 
 export function DetailPage() {
@@ -59,12 +66,29 @@ export function DetailPage() {
               spaceItems={{ default: 'spaceItemsMd' }}
             >
               <FlexItem>
+                <span
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '40px',
+                    height: '40px',
+                    borderRadius: '8px',
+                    backgroundColor: 'var(--pf-t--global--background--color--secondary--default)',
+                    border: '1px solid var(--pf-t--global--border--color--default)',
+                    fontSize: '20px',
+                  }}
+                >
+                  <CubeIcon />
+                </span>
+              </FlexItem>
+              <FlexItem>
                 <Content component="h1" style={{ marginBottom: 0 }}>
                   {harness.name}
                 </Content>
               </FlexItem>
               <FlexItem>
-                <Label isCompact>Starter kit</Label>
+                <Label isCompact variant="outline">Starter kit</Label>
               </FlexItem>
             </Flex>
           </FlexItem>
@@ -96,57 +120,83 @@ export function DetailPage() {
       <PageSection hasBodyWrapper={false}>
         <Grid hasGutter>
           <GridItem span={9}>
-            <Content component="h2">Description</Content>
-            <Content component="p">{harness.longDescription}</Content>
+            <Card>
+              <CardTitle>Description</CardTitle>
+              <CardBody>
+                <Content component="p">{harness.longDescription}</Content>
+              </CardBody>
+            </Card>
 
-            <Content component="h2" style={{ marginTop: '24px' }}>
-              README
-            </Content>
-            <div className="pf-v6-c-content">
-              <Markdown>{harness.readme}</Markdown>
-            </div>
+            <Card style={{ marginTop: '16px' }}>
+              <CardTitle>
+                <Flex
+                  alignItems={{ default: 'alignItemsCenter' }}
+                  spaceItems={{ default: 'spaceItemsSm' }}
+                >
+                  <FlexItem>
+                    <GithubIcon />
+                  </FlexItem>
+                  <FlexItem>README</FlexItem>
+                </Flex>
+              </CardTitle>
+              <CardBody>
+                <div className="pf-v6-c-content">
+                  <Markdown>{harness.readme}</Markdown>
+                </div>
+              </CardBody>
+            </Card>
           </GridItem>
 
           <GridItem span={3}>
-            <Content component="h2">Details</Content>
-            <DescriptionList>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Labels</DescriptionListTerm>
-                <DescriptionListDescription>
-                  {harness.tags.map((tag) => (
-                    <Label
-                      key={tag}
-                      isCompact
-                      style={{ marginRight: '4px', marginBottom: '4px' }}
-                    >
-                      {tag}
-                    </Label>
-                  ))}
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Framework</DescriptionListTerm>
-                <DescriptionListDescription>
-                  {harness.name}
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Agent type</DescriptionListTerm>
-                <DescriptionListDescription>
-                  Starter kit
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Models</DescriptionListTerm>
-                <DescriptionListDescription>
-                  {harness.backends.map((b) => (
-                    <Label key={b.id} isCompact style={{ marginRight: '4px' }}>
-                      {b.name}
-                    </Label>
-                  ))}
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-            </DescriptionList>
+            <Card>
+              <CardTitle>Details</CardTitle>
+              <CardBody>
+                <DescriptionList>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Labels</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      {harness.tags.map((tag) => (
+                        <Label
+                          key={tag}
+                          isCompact
+                          variant="outline"
+                          style={{ marginRight: '4px', marginBottom: '4px' }}
+                        >
+                          {tag}
+                        </Label>
+                      ))}
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Framework</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      {harness.name}
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Agent type</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      Starter kit
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Models</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      {harness.backends.map((b) => (
+                        <Label
+                          key={b.id}
+                          isCompact
+                          variant="outline"
+                          style={{ marginRight: '4px' }}
+                        >
+                          {b.name}
+                        </Label>
+                      ))}
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                </DescriptionList>
+              </CardBody>
+            </Card>
           </GridItem>
         </Grid>
       </PageSection>

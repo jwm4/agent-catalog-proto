@@ -2,6 +2,7 @@ export interface ContainerSpec {
   harnessId: string;
   baseImage: string;
   buildArgs: Record<string, string>;
+  setupCommands: string[];
   runCommands: string[];
   envVars: EnvVarSpec[];
   secrets: SecretSpec[];
@@ -36,6 +37,30 @@ export interface VolumeSpec {
   size: string;
   accessMode: string;
   storageClass?: string;
+}
+
+export type BuildPhase = 'pending' | 'running' | 'complete' | 'failed';
+export type DeployPhase = 'pending' | 'applying' | 'waiting' | 'running' | 'failed';
+
+export interface BuildStatus {
+  buildName: string;
+  phase: BuildPhase;
+  imageRef?: string;
+  logLines: string[];
+  error?: string;
+}
+
+export interface DeploymentInfo {
+  sessionId: string;
+  deploymentName: string;
+  namespace: string;
+  phase: DeployPhase;
+  imageRef: string;
+  podName?: string;
+  connectCommand?: string;
+  routeUrl?: string;
+  portForwardCommand?: string;
+  error?: string;
 }
 
 export interface BackendOption {

@@ -5,36 +5,34 @@ export const harnesses: HarnessDefinition[] = [
     id: 'opencode',
     name: 'OpenCode',
     description:
-      'An open-source AI coding agent for the terminal. Pre-installed in a UBI 10 container with gh, glab, shellcheck, uv, and a skills registry.',
+      'An open-source AI coding agent for the terminal. Built from UBI 10 with Node.js, git, and common dev tools.',
     longDescription:
-      'OpenCode is a terminal-based AI coding agent that helps developers write, review, and refactor code. The OpenCode starter kit provides a ready-to-run container image based on UBI 10 minimal with OpenCode pre-installed alongside common development tools. Customize it with additional language SDKs, build tools, and project-specific configurations.',
+      'OpenCode is a terminal-based AI coding agent that helps developers write, review, and refactor code. The container is built from UBI 10 minimal, installing OpenCode and common development tools. Customize it with additional language runtimes, build tools, and project-specific configurations.',
     icon: '',
     tags: ['OpenCode', 'Starter kit'],
     license: 'open-source',
-    hasBaseImage: true,
+    hasBaseImage: false,
     baseConfig: {
       harnessId: 'opencode',
-      baseImage: 'quay.io/aipcc/agentic-ci/opencode-runner:latest',
+      baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
       buildArgs: {},
-      runCommands: [],
-      envVars: [
-        { name: 'AGENT_TOOL', value: 'opencode' },
-        {
-          name: 'OPENCODE_CONFIG_DIR',
-          value: '/home/agent-ci/.config/opencode',
-        },
+      setupCommands: [
+        'microdnf install -y nodejs npm git curl jq tar gzip vim-minimal && microdnf clean all',
+        'npm install -g opencode-ai@1.17.1',
       ],
+      runCommands: [],
+      envVars: [],
       secrets: [],
       files: [],
       volumes: [
         {
           name: 'workspace',
-          mountPath: '/home/agent-ci',
+          mountPath: '/workspace',
           size: '1Gi',
           accessMode: 'ReadWriteOnce',
         },
       ],
-      entrypoint: ['entrypoint.sh'],
+      entrypoint: ['/bin/bash'],
       labels: {
         'io.openshift.tags': 'ai,agent,opencode',
       },
@@ -60,26 +58,23 @@ export const harnesses: HarnessDefinition[] = [
 
 An open-source AI coding agent for the terminal, built for speed and simplicity.
 
-## What's Included
+## What's Built
 
-The OpenCode starter kit container comes pre-configured with:
+The container is built from UBI 10 minimal with:
 
-- **OpenCode v1.17.3** ready to run
-- **GitHub CLI** (\`gh\`) and **GitLab CLI** (\`glab\`) for repository operations
-- **ShellCheck** for shell script analysis
-- **uv** for fast Python package management
-- **Git** for version control
-- A pre-cloned **skills registry** for agent capabilities
+- **OpenCode v1.17.1** (opencode-ai npm package)
+- **Node.js** and **npm** for runtime
+- **git**, **curl**, **jq**, and other common tools
 
 ## Customization
 
-Since OpenCode is already installed in the base image, the customization conversation focuses on your project's needs:
+The AI-guided setup helps you add what your project needs:
 
-- **Language SDKs:** Add Node.js, Go, Java, Rust, or other runtimes
-- **Build tools:** Add make, cmake, gradle, maven, or others
-- **Linting and formatting:** Add eslint, prettier, ruff, or other tools
-- **MCP servers:** Configure additional tool servers
-- **Environment variables:** Set up LLM provider credentials
+- **Language runtimes:** Python, Go, Java, Rust, or others
+- **Build tools:** make, cmake, gradle, maven, or others
+- **Linting and formatting:** eslint, prettier, ruff, or other tools
+- **LLM provider:** Anthropic API, Vertex AI, vLLM, or OGX
+- **RHOAI integration:** MLflow tracing, self-hosted models via vLLM
 
 ## Getting Started
 
@@ -103,13 +98,13 @@ Since OpenCode is already installed in the base image, the customization convers
     baseConfig: {
       harnessId: 'claude-code',
       baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
-      buildArgs: {
-        CLAUDE_CODE_VERSION: 'latest',
-      },
-      runCommands: [
-        'microdnf install -y git curl jq python3 pip nodejs npm && microdnf clean all',
-        'npm install -g @anthropic-ai/claude-code',
+      buildArgs: {},
+      setupCommands: [
+        'microdnf install -y git curl jq tar python3.12 python3.12-pip nodejs npm && microdnf clean all',
+        'ln -sf /usr/bin/python3.12 /usr/bin/python3 && ln -sf /usr/bin/python3 /usr/bin/python',
+        'curl -fsSL https://claude.ai/install.sh | sh',
       ],
+      runCommands: [],
       envVars: [],
       secrets: [
         {
@@ -189,11 +184,15 @@ Claude Code runs in your terminal and can:
     icon: '',
     tags: ['OpenClaw', 'Starter kit'],
     license: 'open-source',
-    hasBaseImage: true,
+    hasBaseImage: false,
     baseConfig: {
       harnessId: 'openclaw',
-      baseImage: 'ghcr.io/openclaw/openclaw:latest',
+      baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
       buildArgs: {},
+      setupCommands: [
+        'microdnf install -y nodejs npm git curl && microdnf clean all',
+        'npm install -g openclaw',
+      ],
       runCommands: [],
       envVars: [],
       secrets: [],
@@ -268,9 +267,11 @@ An extensible AI agent platform with a plugin architecture for Red Hat OpenShift
       harnessId: 'codex',
       baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
       buildArgs: {},
-      runCommands: [
+      setupCommands: [
         'microdnf install -y git curl nodejs npm && microdnf clean all',
+        'npm install -g @openai/codex',
       ],
+      runCommands: [],
       envVars: [],
       secrets: [
         {

@@ -3,11 +3,10 @@ import { Link } from 'react-router-dom';
 import {
   Card,
   CardBody,
-  CardFooter,
-  CardTitle,
   Content,
   Gallery,
   Label,
+  LabelGroup,
   PageSection,
   Pagination,
   SearchInput,
@@ -64,9 +63,7 @@ export function CatalogPage() {
   return (
     <>
       <PageSection hasBodyWrapper={false}>
-        <Content>
-          <Content component="h1">Agents</Content>
-        </Content>
+        <Content component="h1">Agents</Content>
       </PageSection>
 
       <PageSection hasBodyWrapper={false} padding={{ default: 'noPadding' }}>
@@ -119,22 +116,37 @@ export function CatalogPage() {
 
         <Gallery
           hasGutter
-          minWidths={{ default: '300px' }}
+          minWidths={{ default: '360px' }}
           style={{ marginTop: '16px' }}
         >
           {paginated.map((harness) => (
-            <Card key={harness.id} isCompact>
-              <CardTitle>
-                <Link to={`/agents/${harness.id}`}>{harness.name}</Link>
-              </CardTitle>
-              <CardBody>{harness.description}</CardBody>
-              <CardFooter>
-                {harness.tags.map((tag) => (
-                  <Label key={tag} isCompact style={{ marginRight: '4px' }}>
-                    {tag}
-                  </Label>
-                ))}
-              </CardFooter>
+            <Card key={harness.id} isFullHeight>
+              <CardBody>
+                <div style={{ marginBottom: '0.75rem' }}>
+                  <Link
+                    to={`/agents/${harness.id}`}
+                    style={{
+                      fontSize: '1rem',
+                      fontWeight: 'bold',
+                      textDecoration: 'underline',
+                    }}
+                  >
+                    {harness.name}
+                  </Link>
+                </div>
+                <p style={{ margin: 0 }}>{harness.description}</p>
+                <LabelGroup style={{ marginTop: '1rem' }}>
+                  {harness.tags.map((tag, i) => (
+                    <Label
+                      key={tag}
+                      variant="outline"
+                      color={i === 0 ? 'blue' : undefined}
+                    >
+                      {tag}
+                    </Label>
+                  ))}
+                </LabelGroup>
+              </CardBody>
             </Card>
           ))}
         </Gallery>

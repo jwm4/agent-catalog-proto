@@ -1,0 +1,9 @@
+/*
+ * PF6 Card renders its border via a ::before pseudo-element with
+ * position: absolute. This gets clipped by the card's overflow: auto
+ * in some rendering contexts. Use a real box-shadow instead, which
+ * is never clipped and matches the PF6 border token values.
+ */
+.pf-v6-c-card {
+  box-shadow: 0 0 0 1px #b8bbbe;
+}

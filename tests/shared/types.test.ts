@@ -5,8 +5,9 @@ describe('shared types', () => {
   it('should allow creating a minimal ContainerSpec', () => {
     const spec: ContainerSpec = {
       harnessId: 'opencode',
-      baseImage: 'quay.io/aipcc/agentic-ci/opencode-runner:latest',
+      baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
       buildArgs: {},
+      setupCommands: [],
       runCommands: [],
       envVars: [],
       secrets: [],
@@ -28,11 +29,12 @@ describe('shared types', () => {
       icon: '/icons/opencode.svg',
       tags: ['OpenCode', 'Starter kit'],
       license: 'open-source',
-      hasBaseImage: true,
+      hasBaseImage: false,
       baseConfig: {
         harnessId: 'opencode',
-        baseImage: 'quay.io/aipcc/agentic-ci/opencode-runner:latest',
+        baseImage: 'registry.access.redhat.com/ubi10/ubi-minimal:latest',
         buildArgs: {},
+        setupCommands: [],
         runCommands: [],
         envVars: [],
         secrets: [],

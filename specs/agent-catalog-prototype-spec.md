@@ -65,10 +65,26 @@ The detail page for Claude Code. Key elements:
 - A "Details" sidebar on the right with: Labels (chip list), Framework,
   Agent type, and Models.
 
+**`s3.jpg`** (design prototype, masthead toolbar):
+
+![Design Prototype - Masthead Toolbar](s3.jpg)
+
+A close-up of the masthead toolbar area (upper right). Key elements:
+
+- Notification bell icon (plain button).
+- Info circle icon (plain button).
+- Dark/light mode toggle (moon icon). Clicking switches between light and
+  dark PatternFly themes.
+- User identity dropdown ("AI Engineer") with a blue avatar circle. The
+  dropdown contains role options (AI Admin, AI Engineer, Data Scientist),
+  a divider, and action items (Profile, Settings, Feature Flags, Clear
+  local storage).
+
 **Design guidance:**
 
-Where the design prototype (`s1.jpg`, `s2.jpg`) and the earlier mockup
-(`agent_cat.png`) differ, prefer the design prototype as it is more recent.
+Where the design prototype (`s1.jpg`, `s2.jpg`, `s3.jpg`) and the earlier
+mockup (`agent_cat.png`) differ, prefer the design prototype as it is more
+recent.
 The prototype extends the design prototype by adding a customization
 experience (chat + spec viewer) that does not appear in any of the reference
 screenshots.
@@ -380,8 +396,8 @@ Depending on the harness, a "skill" may be:
 - **A plugin or extension.** OpenClaw has a plugin system (npm packages
   installed at startup). Other harnesses may have similar concepts.
 - **A curated skill from a registry.** The `opendatahub-io/skills-registry`
-  contains pre-built skills for common tasks. The OpenCode base image
-  already includes a clone of this registry.
+  contains pre-built skills for common tasks. The skills registry can be
+  cloned into the container during customization.
 
 #### 3.4.3 How Skills Are Added During Customization
 
@@ -434,7 +450,7 @@ harness's skill system. The flow varies by skill type:
 | Claude Code | CLAUDE.md + skill directories | `/workspace/CLAUDE.md`, `/etc/claude-skills/*/` |
 | Claude Code | MCP server config | `/home/claude-agent/.claude/mcp_config.json` |
 | OpenCode | Config + prompt files | `/home/agent-ci/.config/opencode/` |
-| OpenCode | Skills registry | `/tmp/agentic-ci/skills/` (pre-cloned in base image) |
+| OpenCode | Skills registry | `/tmp/agentic-ci/skills/` (cloned during customization) |
 | OpenClaw | Plugins (npm packages) | Installed via entrypoint, config in `/home/node/.openclaw/` |
 | Codex | TBD | TBD |
 
@@ -603,9 +619,9 @@ instructions: |
   You are a container customization assistant for Red Hat OpenShift AI.
   You help users configure container images for AI coding agents.
 
-  The user has selected the {{ harness_id }} harness with base image
-  {{ base_image }}. The base image already contains the agent binary,
-  git, gh CLI, glab CLI, shellcheck, and uv.
+  The user has selected the {{ harness_id }} harness. The container
+  builds from UBI 10 minimal. The harness setup (agent install, system
+  packages) is already in the Containerfile under "Harness setup."
 
   Guide the user through:
   1. Understanding their project (offer to clone their repo and analyze
@@ -695,53 +711,40 @@ from a tool call.
 ### 4.5 Harness-Specific Base Configurations
 
 Each harness in the catalog has a base configuration that the AI starts from.
-This is a JSON or TypeScript object checked into the prototype repo.
+This is a TypeScript object checked into `src/client/data/harnesses.ts`.
 
-**Claude Code base config:**
-- No pre-built base image (license restriction).
-- Starts from UBI 10 minimal.
-- Installs Claude Code via native installer (version-pinnable).
-- Includes the entrypoint.sh pattern from the starter kit.
-- Pre-configures: git, curl, jq, python3, pip.
-- Requires: API key or Vertex AI credentials as a secret.
-- PVC at `/workspace` (1Gi default).
-- Reference: `/Users/bmurdock/git/agentic-starter-kits/agents/claude-code/deployment/`
+All harnesses build from UBI 10 minimal
+(`registry.access.redhat.com/ubi10/ubi-minimal:latest`). The agent and its
+dependencies are installed via `setupCommands` in the generated Containerfile,
+under a "Harness setup" comment section. User customizations added by the AI
+appear under a separate "User customizations" section.
 
 **OpenCode base config (first harness to implement):**
-- Base image: `quay.io/aipcc/agentic-ci/opencode-runner:latest` (~223MB,
-  public, actively maintained by the AI Platform CC team).
-- Built on UBI 10 minimal with OpenCode v1.17.3 pre-installed.
-- Runs as non-root user `agent-ci` (OpenShift `restricted-v2` compatible).
-- Pre-includes: `gh` CLI 2.94.0, `glab` CLI 1.102.0, `shellcheck`, `uv`
-  (Python package manager), git, and a pre-cloned `opendatahub-io/skills-registry`.
-- Has its own `entrypoint.sh` and pre-configured `opencode.json` at
-  `/home/agent-ci/.config/opencode/`.
-- Includes an `agentic-ci` framework under `/tmp/agentic-ci/src/` for
-  orchestrating agent runs.
-- Env vars: `AGENT_TOOL=opencode`,
-  `OPENCODE_CONFIG_DIR=/home/agent-ci/.config/opencode`.
-- Workdir: `/home/agent-ci`.
-- Entrypoint: `entrypoint.sh`, default cmd: `opencode`.
-- Customization layers on top: additional language SDKs (Node.js, Go, Java,
-  Rust, etc.), build tools, linting tools, project-specific configs, MCP
-  servers.
-- Lighter customization conversation than Claude Code (agent already installed,
-  focus is on project tooling).
-- Note: This image is a placeholder. It will be replaced by a more official
-  RHOAI-hosted image later. The "opencode-runner" name reflects its CI
-  origins; for the catalog, we present it simply as "OpenCode."
+- Setup: installs Node.js, npm, git, curl, jq, tar, gzip, vim-minimal, then
+  `npm install -g opencode-ai@1.17.1`.
+- Customization covers: language runtimes, build tools, linting tools,
+  LLM provider credentials, MCP server configuration, persistent storage.
+- Entrypoint: `/bin/bash`.
+- PVC at `/workspace` (1Gi default).
+
+**Claude Code base config:**
+- Setup: installs git, curl, jq, tar, python3.12, pip, Node.js, npm, then
+  Claude Code via native installer (`curl -fsSL https://claude.ai/install.sh | sh`).
+- Requires: Anthropic API key or Vertex AI credentials as a secret.
+- PVC at `/workspace` (1Gi default).
+- Note: Anthropic licensing restricts redistribution of built images containing
+  Claude Code. Building for internal use is permitted.
 
 **OpenClaw base config:**
-- Base image: `ghcr.io/openclaw/openclaw` or RHOAI-hosted equivalent.
+- Setup: installs Node.js, npm, git, curl, then `npm install -g openclaw`.
 - Plugin system for extensions (vault, openshell, etc.).
 - Requires: API credentials for the LLM provider.
 - PVC for `/home/node/.openclaw` (SQLite state, requires block storage).
-- Reference: `/Users/bmurdock/claw-installer-test/openclaw-installer/`
 
 **Codex base config:**
-- Open-source CLI agent by OpenAI.
-- Base image TBD (may need to build from source like Claude Code).
+- Setup: installs git, curl, Node.js, npm, then `npm install -g @openai/codex`.
 - Requires: OpenAI API key.
+- PVC at `/workspace` (1Gi default).
 
 
 ## 5. Technical Architecture
@@ -826,7 +829,8 @@ interface ContainerSpec {
   harnessId: string;
   baseImage: string;
   buildArgs: Record<string, string>;
-  runCommands: string[];           // ordered RUN lines
+  setupCommands: string[];         // harness-defined install commands (not AI-editable)
+  runCommands: string[];           // user customization RUN lines (added by AI tools)
   envVars: EnvVarSpec[];
   secrets: SecretSpec[];             // values collected separately via UI
   files: FileSpec[];
@@ -1079,28 +1083,20 @@ dual Plan/Build agent architecture, LSP integration, and MCP tool support.
 The upstream project has been archived and renamed to Crush (by the Charm team),
 but the existing releases remain functional.
 
-- **Base image:** `quay.io/aipcc/agentic-ci/opencode-runner:latest`.
-  This is a CI-oriented image built by the AI Platform CC team. It packages
-  OpenCode v1.17.3 into a UBI 10 minimal container with dev tooling (gh, glab,
-  shellcheck, uv), an entrypoint script, a skills registry clone, and an
-  agentic-ci orchestration framework. It will be replaced by a more official
-  image later.
-- **Image contents already include:** OpenCode binary, git, gh CLI, glab CLI,
-  shellcheck, uv, pre-configured opencode.json, skills from
-  opendatahub-io/skills-registry.
-- **Customization focuses on:** additional language runtimes (Node.js, Python
-  packages, Go, Java, Rust), build and lint tools (eslint, prettier, pytest,
-  golangci-lint), project-specific configuration, MCP server definitions,
-  LLM provider credentials.
-- **User/group:** `agent-ci` (non-root, OpenShift restricted-v2 compatible).
-- **Config directory:** `/home/agent-ci/.config/opencode/`.
-- **LLM provider config:** OpenCode supports many providers natively. The
-  customization conversation should ask which provider and model the user
-  wants, then set the appropriate env vars.
-- **Why first:** The base image already exists and is public. OpenCode is open
-  source with no license complications. The customization conversation is
-  simpler (no agent install step). This makes it the fastest path to a
-  working end-to-end demo.
+- **Base image:** UBI 10 minimal. OpenCode v1.17.1 is installed via
+  `npm install -g opencode-ai` during the container build (in `setupCommands`).
+- **Setup installs:** Node.js, npm, git, curl, jq, tar, gzip, vim-minimal,
+  OpenCode.
+- **Customization focuses on:** additional language runtimes (Python, Go, Java,
+  Rust), build and lint tools (eslint, prettier, pytest, golangci-lint),
+  project-specific configuration, MCP server definitions, LLM provider
+  credentials.
+- **LLM providers:** Anthropic API, Vertex AI, vLLM (direct), OGX gateway.
+  The customization conversation asks which provider the user wants and sets
+  the appropriate env vars and secrets.
+- **Why first:** OpenCode is open source (MIT) with no license complications,
+  and the AI Platform CC team has established deployment patterns for it.
+  The same UBI-based build approach applies to all harnesses.
 
 ### 6.3 OpenClaw
 
@@ -1113,10 +1109,10 @@ but the existing releases remain functional.
 
 ### 6.4 Codex
 
-- Details TBD. Base configuration to be defined once Codex deployment patterns
-  are established.
-- Expected to follow a similar pattern: base image or source install, API key
-  for OpenAI, PVC for workspace.
+- Open-source CLI agent by OpenAI, installed via `npm install -g @openai/codex`.
+- Builds from UBI 10 minimal like all other harnesses.
+- Requires: OpenAI API key.
+- PVC at `/workspace` (1Gi default).
 
 
 ## 7. Prototype Scope and Phasing
@@ -1142,12 +1138,12 @@ but the existing releases remain functional.
 - Chat pane with PatternFly AI chatbot, connected via SSE.
 - Container viewer pane (Containerfile tab at minimum), updated via WebSocket
   when Goose calls ContainerSpec MCP tools.
-- Base config for OpenCode (first harness, using
-  `quay.io/aipcc/agentic-ci/opencode-runner` as the base image).
-- Since OpenCode is already installed in the base image, the customization
-  conversation focuses on: which language SDKs and build tools to add, which
-  linting/formatting tools, environment variables and secrets for the LLM
-  provider, MCP server configuration, and persistent storage.
+- Base config for OpenCode (first harness, building from UBI 10 minimal
+  with agent install in `setupCommands`).
+- The customization conversation focuses on: which language SDKs and build
+  tools to add, which linting/formatting tools, environment variables and
+  secrets for the LLM provider, MCP server configuration, and persistent
+  storage.
 - Goose's built-in file system and bash tools enable the agent to clone a
   user's repo and analyze project files to infer tooling needs.
 
@@ -1161,7 +1157,22 @@ but the existing releases remain functional.
 - Deploy to the connected OpenShift cluster.
 - Deployment status page with streaming build logs and connect instructions.
 
-### Phase 4: Polish and Additional Harnesses
+### Phase 4: AI Conversation Optimization
+
+- Replace recipe system prompt with Goose skills that provide structured,
+  progressive-disclosure guidance for each harness's customization workflow.
+- Keep the assistant focused on container configuration rather than
+  performing development tasks (e.g., cloning repos, analyzing bugs).
+- Surface tool calls in the chat UI (e.g., "Installing packages via npm...")
+  so the user sees what the AI is doing to the container spec.
+- Add typing/thinking indicators that persist through the full response
+  lifecycle, not just until the first text chunk arrives.
+- Remove the `developer` builtin extension from recipes (not needed for
+  container customization; it causes the assistant to go off-mission).
+- Test and iterate on conversation quality across different use cases
+  (coding projects, data pipelines, content generation, etc.).
+
+### Phase 5: Polish and Additional Harnesses
 
 - Add Goose recipes and base configs for Claude Code, OpenClaw, Codex.
 - Env Vars, Files, and Volumes tabs in the spec viewer.
@@ -1169,11 +1180,21 @@ but the existing releases remain functional.
 - Error handling and validation in the AI conversation.
 - OpenShift-specific manifest generation (Route, Shipwright Build).
 
+### Phase 6: Dark Mode and Theme Switching
+
+- Wire up the dark/light mode toggle in the masthead toolbar. Clicking the
+  moon icon switches between PatternFly light and dark themes at runtime.
+- Persist the user's theme preference in localStorage.
+- Verify all pages (catalog, detail, customize) render correctly in dark
+  mode, including the chat pane, spec viewer, and cards.
+- Ensure PatternFly token-based colors propagate correctly (no hardcoded
+  color values that break under theme switching).
+
 
 ## 8. Open Questions
 
 1. **Codex deployment model:** Base configuration to be defined once Codex
-   deployment patterns are established. Deferred to Phase 4.
+   deployment patterns are established. Deferred to Phase 5.
 
 2. **Chat history persistence:** Should customization chat sessions be saved
    so the user can resume later? Goose has session management built in, so
@@ -1190,10 +1211,9 @@ Decisions made during spec development, recorded here for context.
    recipes. The ContainerSpec mutation tools are implemented as a custom MCP
    server.
 
-2. **First harness to implement:** OpenCode, using
-   `quay.io/aipcc/agentic-ci/opencode-runner:latest` as the base image. It is
-   open source, the image is public and actively maintained, and the
-   customization conversation is simpler (agent already installed).
+2. **First harness to implement:** OpenCode, building from UBI 10 minimal
+   (like all harnesses). It is open source (MIT), has established deployment
+   patterns, and no license complications.
 
 3. **Container build mechanism:** OpenShift BuildConfig (Docker strategy,
    binary source) for the prototype. On-cluster builds via

@@ -1,10 +1,18 @@
 import { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
+  Button,
+  Divider,
+  Dropdown,
+  DropdownGroup,
+  DropdownItem,
+  DropdownList,
   Masthead,
   MastheadBrand,
+  MastheadContent,
   MastheadMain,
   MastheadToggle,
+  MenuToggle,
   Nav,
   NavExpandable,
   NavItem,
@@ -13,16 +21,65 @@ import {
   PageSidebar,
   PageSidebarBody,
   PageToggleButton,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
 } from '@patternfly/react-core';
-import { BarsIcon } from '@patternfly/react-icons';
+import {
+  BarsIcon,
+  BellIcon,
+  BookOpenIcon,
+  ChartLineIcon,
+  CodeIcon,
+  CogIcon,
+  CubeIcon,
+  FlaskIcon,
+  FolderOpenIcon,
+  HomeIcon,
+  InfoCircleIcon,
+  OutlinedMoonIcon,
+  RobotIcon,
+  UserIcon,
+} from '@patternfly/react-icons';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
   const isAgentsActive =
     location.pathname === '/' || location.pathname.startsWith('/agents');
+
+  const userAvatar = (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        width: '28px',
+        height: '28px',
+        backgroundColor: 'var(--pf-t--global--color--brand--default)',
+        borderRadius: '50%',
+        color: 'white',
+        fontSize: '14px',
+      }}
+    >
+      <UserIcon />
+    </span>
+  );
+
+  const userMenuToggle = (toggleRef: React.RefObject<HTMLButtonElement>) => (
+    <MenuToggle
+      ref={toggleRef as React.Ref<HTMLButtonElement>}
+      onClick={() => setIsUserMenuOpen((prev) => !prev)}
+      isExpanded={isUserMenuOpen}
+      icon={userAvatar}
+    >
+      AI Engineer
+    </MenuToggle>
+  );
 
   const masthead = (
     <Masthead>
@@ -50,7 +107,80 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
           </span>
         </MastheadBrand>
       </MastheadMain>
+      <MastheadContent>
+        <Toolbar isFullHeight isStatic>
+          <ToolbarContent>
+            <ToolbarGroup
+              variant="action-group-plain"
+              align={{ default: 'alignEnd' }}
+            >
+              <ToolbarItem>
+                <Button
+                  variant="plain"
+                  aria-label="Notifications"
+                  icon={<BellIcon />}
+                />
+              </ToolbarItem>
+              <ToolbarItem>
+                <Button
+                  variant="plain"
+                  aria-label="Info"
+                  icon={<InfoCircleIcon />}
+                />
+              </ToolbarItem>
+              <ToolbarItem>
+                <Button
+                  variant="plain"
+                  aria-label="Dark mode"
+                  icon={<OutlinedMoonIcon />}
+                />
+              </ToolbarItem>
+            </ToolbarGroup>
+            <ToolbarItem>
+              <Dropdown
+                isOpen={isUserMenuOpen}
+                onSelect={() => setIsUserMenuOpen(false)}
+                onOpenChange={setIsUserMenuOpen}
+                toggle={userMenuToggle}
+                popperProps={{ position: 'end' }}
+              >
+                <DropdownGroup key="roles">
+                  <DropdownList>
+                    <DropdownItem key="admin" icon={<UserIcon />}>
+                      AI Admin
+                    </DropdownItem>
+                    <DropdownItem key="engineer" icon={<UserIcon />}>
+                      AI Engineer
+                    </DropdownItem>
+                    <DropdownItem key="scientist" icon={<UserIcon />}>
+                      Data Scientist
+                    </DropdownItem>
+                  </DropdownList>
+                </DropdownGroup>
+                <Divider />
+                <DropdownGroup key="actions">
+                  <DropdownList>
+                    <DropdownItem key="profile" icon={<UserIcon />}>
+                      Profile
+                    </DropdownItem>
+                    <DropdownItem key="settings" icon={<CogIcon />}>
+                      Settings
+                    </DropdownItem>
+                  </DropdownList>
+                </DropdownGroup>
+              </Dropdown>
+            </ToolbarItem>
+          </ToolbarContent>
+        </Toolbar>
+      </MastheadContent>
     </Masthead>
+  );
+
+  const navTitle = (icon: React.ReactNode, text: string) => (
+    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      {icon}
+      {text}
+    </span>
   );
 
   const sidebar = (
@@ -58,10 +188,14 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
       <PageSidebarBody>
         <Nav>
           <NavList>
-            <NavItem isActive={false}>Home</NavItem>
-            <NavItem isActive={false}>Projects</NavItem>
+            <NavItem isActive={false} icon={<HomeIcon />}>
+              Home
+            </NavItem>
+            <NavItem isActive={false} icon={<FolderOpenIcon />}>
+              Projects
+            </NavItem>
             <NavExpandable
-              title="AI hub"
+              title={navTitle(<RobotIcon />, 'AI hub')}
               isExpanded={true}
               isActive={isAgentsActive}
             >
@@ -73,20 +207,37 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               </NavItem>
               <NavItem isActive={false}>Models</NavItem>
             </NavExpandable>
-            <NavExpandable title="Gen AI studio" isExpanded={false}>
+            <NavExpandable
+              title={navTitle(<FlaskIcon />, 'Gen AI studio')}
+              isExpanded={false}
+            >
               <NavItem isActive={false}>Placeholder</NavItem>
             </NavExpandable>
-            <NavExpandable title="Develop and train" isExpanded={false}>
+            <NavExpandable
+              title={navTitle(<CodeIcon />, 'Develop and train')}
+              isExpanded={false}
+            >
               <NavItem isActive={false}>Placeholder</NavItem>
             </NavExpandable>
-            <NavExpandable title="Observe and monitor" isExpanded={false}>
+            <NavExpandable
+              title={navTitle(<ChartLineIcon />, 'Observe and monitor')}
+              isExpanded={false}
+            >
               <NavItem isActive={false}>Placeholder</NavItem>
             </NavExpandable>
-            <NavItem isActive={false}>Learning resources</NavItem>
-            <NavExpandable title="Applications" isExpanded={false}>
+            <NavItem isActive={false} icon={<BookOpenIcon />}>
+              Learning resources
+            </NavItem>
+            <NavExpandable
+              title={navTitle(<CubeIcon />, 'Applications')}
+              isExpanded={false}
+            >
               <NavItem isActive={false}>Placeholder</NavItem>
             </NavExpandable>
-            <NavExpandable title="Settings" isExpanded={false}>
+            <NavExpandable
+              title={navTitle(<CogIcon />, 'Settings')}
+              isExpanded={false}
+            >
               <NavItem isActive={false}>Placeholder</NavItem>
             </NavExpandable>
           </NavList>
