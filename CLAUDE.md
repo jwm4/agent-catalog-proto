@@ -16,22 +16,6 @@ specification.
 - **Bundler:** Vite
 - **Test runner:** Vitest
 
-## Directory Structure
-
-```
-src/
-  client/        React frontend (PatternFly components)
-  server/        Express backend, Goose integration layer
-  mcp-server/    ContainerSpec MCP server (addPackage, setEnvVar, addFile, etc.)
-  shared/        Shared TypeScript types (ContainerSpec, HarnessDefinition)
-tests/
-  client/        Frontend tests
-  server/        Backend tests
-  mcp-server/    MCP server tests
-specs/           Specification and reference screenshots
-docs/adr/        Architecture Decision Records
-```
-
 ## Commands
 
 ```bash
