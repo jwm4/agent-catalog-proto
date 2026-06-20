@@ -63,6 +63,22 @@ npx tsc --noEmit path/to/file.ts
 npm run format
 ```
 
+## Commit Messages
+
+Use conventional commits. Format: `type(scope): description`
+
+Types: `feat`, `fix`, `docs`, `style`, `refactor`, `test`, `chore`, `build`, `ci`
+
+Scopes: `client`, `server`, `mcp-server`, `shared`, or omit for cross-cutting changes.
+
+Examples:
+- `feat(client): add catalog page card grid`
+- `fix(server): handle goosed connection timeout`
+- `docs: update ADR for build strategy`
+- `test(mcp-server): add tests for addPackage tool`
+
+A commit-msg hook enforces this via commitlint.
+
 ## Coding Conventions
 
 - TypeScript strict mode. All new code must be fully typed.

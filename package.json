@@ -15,7 +15,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "format": "prettier --write 'src/**/*.{ts,tsx,json,css}' 'tests/**/*.{ts,tsx}'",
-    "format:check": "prettier --check 'src/**/*.{ts,tsx,json,css}' 'tests/**/*.{ts,tsx}'"
+    "format:check": "prettier --check 'src/**/*.{ts,tsx,json,css}' 'tests/**/*.{ts,tsx}'",
+    "prepare": "husky"
   },
   "dependencies": {
     "@kubernetes/client-node": "^1.1.0",
@@ -31,6 +32,8 @@
     "ws": "^8.18.0"
   },
   "devDependencies": {
+    "@commitlint/cli": "^21.0.2",
+    "@commitlint/config-conventional": "^21.0.2",
     "@eslint/js": "^9.28.0",
     "@types/express": "^5.0.2",
     "@types/react": "^18.3.23",
@@ -41,6 +44,7 @@
     "eslint-plugin-react-hooks": "^5.2.0",
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^16.2.0",
+    "husky": "^9.1.7",
     "prettier": "^3.5.3",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
