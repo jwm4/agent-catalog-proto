@@ -1,29 +1,17 @@
-import {
-  Page,
-  Masthead,
-  MastheadMain,
-  MastheadBrand,
-  PageSection,
-  Content,
-} from '@patternfly/react-core';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { AppLayout } from '@client/components/AppLayout';
+import { CatalogPage } from '@client/pages/CatalogPage';
+import { DetailPage } from '@client/pages/DetailPage';
 
 export function App() {
   return (
-    <Page
-      masthead={
-        <Masthead>
-          <MastheadMain>
-            <MastheadBrand>Agent Catalog</MastheadBrand>
-          </MastheadMain>
-        </Masthead>
-      }
-    >
-      <PageSection>
-        <Content>
-          <h1>Agent Catalog</h1>
-          <p>Prototype is running. Start building from here.</p>
-        </Content>
-      </PageSection>
-    </Page>
+    <BrowserRouter>
+      <AppLayout>
+        <Routes>
+          <Route path="/" element={<CatalogPage />} />
+          <Route path="/agents/:id" element={<DetailPage />} />
+        </Routes>
+      </AppLayout>
+    </BrowserRouter>
   );
 }

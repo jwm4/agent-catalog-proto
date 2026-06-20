@@ -44,6 +44,7 @@ describe('shared types', () => {
       },
       systemPrompt: '',
       documentationUrl: 'https://github.com/opencode-ai/opencode',
+      readme: '# OpenCode\n\nAn AI coding agent.',
       backends: [],
     };
     expect(harness.license).toBe('open-source');

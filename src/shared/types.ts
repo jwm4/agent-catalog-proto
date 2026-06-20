@@ -57,5 +57,6 @@ export interface HarnessDefinition {
   baseConfig: ContainerSpec;
   systemPrompt: string;
   documentationUrl: string;
+  readme: string;
   backends: BackendOption[];
 }
