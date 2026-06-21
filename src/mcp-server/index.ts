@@ -24,6 +24,21 @@ const BASE_IMAGE =
 
 let spec: ContainerSpec = createDefaultSpec(HARNESS_ID, BASE_IMAGE);
 
+async function fetchInitialSpec(): Promise<void> {
+  if (!SESSION_ID) return;
+  try {
+    const res = await fetch(
+      `${BACKEND_URL}/api/session/${SESSION_ID}/spec`,
+    );
+    if (res.ok) {
+      spec = (await res.json()) as ContainerSpec;
+      console.error('[containerspec] Loaded existing spec from session');
+    }
+  } catch (err) {
+    console.error('[containerspec] Could not fetch initial spec, using default:', err);
+  }
+}
+
 async function pushSpecUpdate(): Promise<void> {
   if (!SESSION_ID) {
     console.error('[containerspec] No SESSION_ID set, skipping push');
@@ -226,7 +241,35 @@ server.tool(
   },
 );
 
+server.tool(
+  'replaceSpec',
+  'Replace the ENTIRE container specification. Use this ONLY for fundamental changes the user explicitly requests, such as switching the base image, changing the harness version, or removing setup commands. For normal additions, use addPackage, setEnvVar, addSecret, etc. Always call getSpec first so you know what you are replacing.',
+  {
+    spec: z.string().describe('The full ContainerSpec as a JSON string'),
+  },
+  async ({ spec: specJson }) => {
+    try {
+      spec = JSON.parse(specJson) as ContainerSpec;
+      await pushSpecUpdate();
+      return {
+        content: [
+          { type: 'text', text: 'Container specification replaced.' },
+        ],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          { type: 'text', text: `Failed to parse spec JSON: ${msg}` },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
 async function main() {
+  await fetchInitialSpec();
   const transport = new StdioServerTransport();
   await server.connect(transport);
   console.error('[containerspec] MCP server running on stdio');

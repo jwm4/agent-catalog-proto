@@ -63,6 +63,42 @@ export interface DeploymentInfo {
   error?: string;
 }
 
+export interface HarnessConfigField {
+  name: string;
+  label: string;
+  type: 'text' | 'secret' | 'select' | 'boolean';
+  description?: string;
+  default?: string;
+  placeholder?: string;
+  choices?: (string | { label: string; value: string })[];
+}
+
+export interface HarnessConfigOption {
+  id: string;
+  label: string;
+  default?: boolean;
+  secrets?: SecretSpec[];
+  config?: Record<string, unknown>;
+  fields?: HarnessConfigField[];
+}
+
+export interface HarnessConfigSection {
+  id: string;
+  title: string;
+  description?: string;
+  collapsed?: boolean;
+  dynamic?: boolean;
+  options?: HarnessConfigOption[];
+  fields?: HarnessConfigField[];
+  template?: { fields: HarnessConfigField[] };
+}
+
+export interface HarnessConfigSchema {
+  id: string;
+  version?: string;
+  sections: HarnessConfigSection[];
+}
+
 export interface BackendOption {
   id: string;
   name: string;
@@ -84,4 +120,5 @@ export interface HarnessDefinition {
   documentationUrl: string;
   readme: string;
   backends: BackendOption[];
+  configSchema?: HarnessConfigSchema;
 }

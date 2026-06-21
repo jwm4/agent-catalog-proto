@@ -1,4 +1,5 @@
 import type { HarnessDefinition } from '@shared/types';
+import { getConfigSchema } from '@shared/harness-configs/index';
 
 export const harnesses: HarnessDefinition[] = [
   {
@@ -40,6 +41,7 @@ export const harnesses: HarnessDefinition[] = [
     },
     systemPrompt: '',
     documentationUrl: 'https://github.com/opencode-ai/opencode',
+    configSchema: getConfigSchema('opencode'),
     backends: [
       {
         id: 'anthropic',

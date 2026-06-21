@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Tab,
   Tabs,
@@ -9,8 +9,8 @@ import {
   EmptyStateBody,
   PageSection,
 } from '@patternfly/react-core';
-import type { ContainerSpec } from '@shared/types';
-import { EnvVarsTab } from './spec-tabs/EnvVarsTab';
+import type { ContainerSpec, HarnessConfigSchema } from '@shared/types';
+import { ConfigurationTab } from './spec-tabs/ConfigurationTab';
 import { FilesTab } from './spec-tabs/FilesTab';
 import { VolumesTab } from './spec-tabs/VolumesTab';
 import { generateContainerfile } from '../utils/containerfile';
@@ -20,10 +20,60 @@ interface SpecViewerPaneProps {
   spec: ContainerSpec | null;
   secretValues: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
+  configSchema?: HarnessConfigSchema;
 }
 
-export function SpecViewerPane({ sessionId, spec, secretValues, onSecretChange }: SpecViewerPaneProps) {
+function detectChangedTab(
+  prev: ContainerSpec,
+  next: ContainerSpec,
+): string | null {
+  if (
+    JSON.stringify(prev.envVars) !== JSON.stringify(next.envVars) ||
+    JSON.stringify(prev.secrets) !== JSON.stringify(next.secrets)
+  ) {
+    return 'configuration';
+  }
+  if (JSON.stringify(prev.files) !== JSON.stringify(next.files)) {
+    return 'files';
+  }
+  if (JSON.stringify(prev.volumes) !== JSON.stringify(next.volumes)) {
+    return 'volumes';
+  }
+  if (
+    prev.baseImage !== next.baseImage ||
+    JSON.stringify(prev.runCommands) !== JSON.stringify(next.runCommands) ||
+    JSON.stringify(prev.setupCommands) !== JSON.stringify(next.setupCommands) ||
+    JSON.stringify(prev.buildArgs) !== JSON.stringify(next.buildArgs) ||
+    JSON.stringify(prev.entrypoint) !== JSON.stringify(next.entrypoint) ||
+    JSON.stringify(prev.labels) !== JSON.stringify(next.labels) ||
+    JSON.stringify(prev.exposedPorts) !== JSON.stringify(next.exposedPorts)
+  ) {
+    return 'containerfile';
+  }
+  return null;
+}
+
+export function SpecViewerPane({
+  sessionId,
+  spec,
+  secretValues,
+  onSecretChange,
+  configSchema,
+}: SpecViewerPaneProps) {
   const [activeTab, setActiveTab] = useState<string | number>('containerfile');
+  const prevSpecRef = useRef<ContainerSpec | null>(null);
+
+  useEffect(() => {
+    if (!spec || !prevSpecRef.current) {
+      prevSpecRef.current = spec;
+      return;
+    }
+    const changed = detectChangedTab(prevSpecRef.current, spec);
+    if (changed) {
+      setActiveTab(changed);
+    }
+    prevSpecRef.current = spec;
+  }, [spec]);
 
   if (!spec) {
     return (
@@ -58,12 +108,15 @@ export function SpecViewerPane({ sessionId, spec, secretValues, onSecretChange }
             </CodeBlock>
           </div>
         </Tab>
-        <Tab eventKey="envvars" title={<TabTitleText>Env Vars</TabTitleText>}>
+        <Tab
+          eventKey="configuration"
+          title={<TabTitleText>Configuration</TabTitleText>}
+        >
           <div style={{ padding: '16px', overflow: 'auto', flex: 1 }}>
-            <EnvVarsTab
+            <ConfigurationTab
+              configSchema={configSchema}
               envVars={spec.envVars}
               secrets={spec.secrets}
-              sessionId={sessionId}
               secretValues={secretValues}
               onSecretChange={onSecretChange}
             />

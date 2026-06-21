@@ -33,6 +33,9 @@ router.post('/api/session', async (req, res) => {
   const sessionId = createSession(harnessId, harness.baseConfig);
   console.log(`Session created: ${sessionId} for harness ${harnessId}`);
 
+  const FALLBACK_GREETING =
+    'Hello! I can help you configure your container image. What kind of project will your agent be working on?';
+
   if (isGoosedRunning()) {
     try {
       await startAgentSession(
@@ -43,16 +46,20 @@ router.post('/api/session', async (req, res) => {
 
       sendInstructionsAndGetGreeting(sessionId, harnessId)
         .then((greeting) => {
-          setWelcomeMessage(sessionId, greeting);
+          setWelcomeMessage(sessionId, greeting || FALLBACK_GREETING);
           console.log(`Welcome message ready for session ${sessionId}`);
         })
         .catch((err) => {
           console.error(`Failed to get greeting for session ${sessionId}:`, err);
-          setWelcomeMessage(sessionId, 'Hello! I can help you configure your container image. What kind of project will your agent be working on?');
+          setWelcomeMessage(sessionId, FALLBACK_GREETING);
         });
     } catch (err) {
       console.error(`Failed to start goosed agent for session ${sessionId}:`, err);
+      setWelcomeMessage(sessionId, FALLBACK_GREETING);
     }
+  } else {
+    console.log(`[goose] goosed not running, using fallback greeting for session ${sessionId}`);
+    setWelcomeMessage(sessionId, FALLBACK_GREETING);
   }
 
   res.json({ sessionId });

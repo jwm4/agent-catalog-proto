@@ -28,9 +28,15 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
     { id: 'welcome', role: 'bot', content: '', isLoading: true },
   ]);
   const [isStreaming, setIsStreaming] = useState(false);
+  const [isReady, setIsReady] = useState(false);
   const msgCounter = useRef(0);
   const currentMessageIdRef = useRef<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const scrollAnchorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   useEffect(() => {
     if (!sessionId) return;
@@ -40,7 +46,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
 
     async function pollWelcome() {
       const POLL_INTERVAL = 1000;
-      const MAX_ATTEMPTS = 60;
+      const MAX_ATTEMPTS = 30;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         if (cancelled) return;
@@ -58,6 +64,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                     : m,
                 ),
               );
+              setIsReady(true);
             }
             return;
           }
@@ -75,6 +82,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
               : m,
           ),
         );
+        setIsReady(true);
       }
     }
 
@@ -260,34 +268,37 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
   }, []);
 
   return (
-    <Chatbot displayMode={ChatbotDisplayMode.embedded}>
-      <ChatbotContent>
-        <MessageBox enableSmartScroll>
-          {messages.map((msg) => (
-            <Message
-              key={msg.id}
-              role={msg.role}
-              content={msg.content}
-              isLoading={msg.isLoading}
-              name={msg.role === 'user' ? 'You' : 'Agent'}
-            />
-          ))}
-        </MessageBox>
-      </ChatbotContent>
-      <ChatbotFooter>
-        <MessageBar
-          onSendMessage={handleSend}
-          isSendButtonDisabled={!sessionId || isStreaming}
-          placeholder={
-            sessionId
-              ? 'Ask the agent to customize your container...'
-              : 'Connecting...'
-          }
-          hasStopButton={isStreaming}
-          handleStopButton={handleStop}
-          isThinking={isStreaming}
-        />
-      </ChatbotFooter>
-    </Chatbot>
+    <div style={{ height: '100%', overflow: 'hidden' }}>
+      <Chatbot displayMode={ChatbotDisplayMode.embedded}>
+        <ChatbotContent>
+          <MessageBox>
+            {messages.map((msg) => (
+              <Message
+                key={msg.id}
+                role={msg.role}
+                content={msg.content}
+                isLoading={msg.isLoading}
+                name={msg.role === 'user' ? 'You' : 'Agent'}
+              />
+            ))}
+            <div ref={scrollAnchorRef} />
+          </MessageBox>
+        </ChatbotContent>
+        <ChatbotFooter>
+          <MessageBar
+            onSendMessage={handleSend}
+            isSendButtonDisabled={!isReady || isStreaming}
+            placeholder={
+              isReady
+                ? 'Ask the agent to customize your container...'
+                : 'Initializing agent...'
+            }
+            hasStopButton={isStreaming}
+            handleStopButton={handleStop}
+            isThinking={isStreaming}
+          />
+        </ChatbotFooter>
+      </Chatbot>
+    </div>
   );
 }

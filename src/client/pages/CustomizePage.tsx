@@ -1,4 +1,5 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { Component, useState, useEffect, useRef, useCallback } from 'react';
+import type { ErrorInfo, ReactNode } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import {
   Breadcrumb,
@@ -14,6 +15,43 @@ import { getHarnessById } from '@client/data/harnesses';
 import { ChatPane } from '@client/components/ChatPane';
 import { SpecViewerPane } from '@client/components/SpecViewerPane';
 import { BuildDeployPanel } from '@client/components/BuildDeployPanel';
+
+class ErrorBoundary extends Component<
+  { children: ReactNode },
+  { error: Error | null }
+> {
+  state: { error: Error | null } = { error: null };
+
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('CustomizePage crash:', error, info.componentStack);
+  }
+
+  render() {
+    if (this.state.error) {
+      return (
+        <PageSection hasBodyWrapper={false}>
+          <Content>
+            <h2>Something went wrong</h2>
+            <pre style={{ whiteSpace: 'pre-wrap', color: 'red' }}>
+              {this.state.error.message}
+              {'\n\n'}
+              {this.state.error.stack}
+            </pre>
+          </Content>
+        </PageSection>
+      );
+    }
+    return this.children;
+  }
+
+  get children() {
+    return this.props.children;
+  }
+}
 
 export function CustomizePage() {
   const { id } = useParams<{ id: string }>();
@@ -109,7 +147,8 @@ export function CustomizePage() {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+    <ErrorBoundary>
+    <div style={{ display: 'flex', flexDirection: 'column', flex: 1, height: 0 }}>
       <PageSection hasBodyWrapper={false} style={{ flexShrink: 0 }}>
         <Breadcrumb>
           <BreadcrumbItem>
@@ -134,49 +173,43 @@ export function CustomizePage() {
           padding: '0 16px',
         }}
       >
-        <Card style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
-          <CardBody style={{ padding: 0, height: '100%' }}>
-            <ChatPane sessionId={sessionId} harnessName={harness.name} />
+        <Card style={{ flex: 1, minWidth: 0, minHeight: 0 }}>
+          <CardBody style={{ padding: 0, position: 'relative', flex: 1, minHeight: 0 }}>
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <ChatPane sessionId={sessionId} harnessName={harness.name} />
+            </div>
           </CardBody>
         </Card>
-        <Card style={{ flex: 1, minWidth: 0, overflow: 'auto' }}>
-          <CardBody style={{ padding: 0, height: '100%' }}>
-            <SpecViewerPane
+        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <Card style={{ flex: 1, minHeight: 0, overflow: 'auto' }}>
+            <CardBody style={{ padding: 0, height: '100%' }}>
+              <SpecViewerPane
+                sessionId={sessionId}
+                spec={spec}
+                secretValues={secretValues}
+                onSecretChange={handleSecretChange}
+                configSchema={harness.configSchema}
+              />
+            </CardBody>
+          </Card>
+          {showBuildPanel && sessionId && (
+            <BuildDeployPanel
               sessionId={sessionId}
-              spec={spec}
               secretValues={secretValues}
-              onSecretChange={handleSecretChange}
+              onClose={() => setShowBuildPanel(false)}
             />
-          </CardBody>
-        </Card>
-      </div>
-
-      {showBuildPanel && sessionId && (
-        <div style={{ padding: '0 16px', marginTop: '16px' }}>
-          <BuildDeployPanel
-            sessionId={sessionId}
-            secretValues={secretValues}
-            onClose={() => setShowBuildPanel(false)}
-          />
+          )}
+          <Button
+            variant="primary"
+            isDisabled={!sessionId || !spec || showBuildPanel}
+            onClick={() => setShowBuildPanel(true)}
+            style={{ alignSelf: 'flex-end', flexShrink: 0 }}
+          >
+            Build & Deploy
+          </Button>
         </div>
-      )}
-
-      <PageSection
-        hasBodyWrapper={false}
-        style={{
-          flexShrink: 0,
-          borderTop:
-            '1px solid var(--pf-t--global--border--color--default)',
-        }}
-      >
-        <Button
-          variant="primary"
-          isDisabled={!sessionId || !spec || showBuildPanel}
-          onClick={() => setShowBuildPanel(true)}
-        >
-          Build & Deploy
-        </Button>
-      </PageSection>
+      </div>
     </div>
+    </ErrorBoundary>
   );
 }

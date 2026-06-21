@@ -19,65 +19,257 @@ them again.
 - **Go, Rust, Java:** Use `addPackage("microdnf", [...])` or `addRunCommand(...)`.
 - **Build tools:** make, cmake, gradle, maven as needed.
 - **Linting and formatting:** eslint, prettier, ruff, golangci-lint as needed.
-- **GitHub CLI (gh):** Not pre-installed. Use `addRunCommand(...)` to install if needed for PR workflows.
+- **GitHub CLI (gh):** Not pre-installed. Use `addRunCommand(...)` to install
+  if needed for PR workflows.
 - **LLM provider credentials** (as secrets, see below).
-- **MCP server configuration** (if extending agent capabilities).
 
 ## Container Environment
 
 - **User:** Runs as non-root. OpenShift assigns a random UID with GID 0 via
   restricted-v2 SCC.
-- **Workspace:** `/workspace` (mount a PVC here for persistence)
+- **Workspace:** `/workspace` with a 1Gi persistent volume already configured.
+  Do NOT add another volume at `/workspace`; it is pre-configured in the base
+  setup. You can see it in the Volumes tab.
 - **Entrypoint:** `/bin/bash` by default. User can customize.
 
-## LLM Provider Configuration
+## OpenCode Configuration File
 
-Ask the user which LLM provider they want to use. OpenCode supports multiple
-providers. Register the appropriate secrets and environment variables.
+OpenCode reads its configuration from a JSON file. In a container, the best
+location is `/workspace/.opencode/config.json`. Use `addFile` to place it:
 
-### Anthropic (direct API)
+```
+addFile("opencode-config.json", "/workspace/.opencode/config.json", "inline",
+  JSON.stringify(configObject, null, 2))
+```
 
-- `addSecret("ANTHROPIC_API_KEY", "Anthropic API key (starts with sk-ant-...)")` (secret)
-- Optionally set model: `setEnvVar("OPENCODE_MODEL", "claude-sonnet-4-5-20250929")`
+Build up the config object throughout the conversation as the user makes
+choices (provider, model, MCP servers, permissions, etc.), then write it as
+a single file at the end.
+
+The config file supports JSONC (comments allowed). All fields are optional.
+Key top-level fields:
+
+| Field | Purpose |
+|-------|---------|
+| `model` | Default model, format `provider/alias` (e.g., `anthropic/sonnet`) |
+| `providers` | Custom or self-hosted provider definitions |
+| `mcp` | MCP server configuration |
+| `permissions` | Tool permission rules |
+| `agents` | Per-agent overrides (model, system prompt, steps) |
+| `instructions` | Paths to instruction files to load automatically |
+| `shell` | Default shell (e.g., `bash`, `zsh`) |
+| `snapshots` | Enable undo/revert snapshots (boolean) |
+
+## LLM Provider Setup
+
+OpenCode has built-in support for these well-known providers. For standard
+providers, the user only needs to set the API key as an environment variable;
+no config file entry is required.
+
+### Anthropic
+
+- `addSecret("ANTHROPIC_API_KEY", "Anthropic API key (starts with sk-ant-...)")`
+- Set model in config: `{ "model": "anthropic/sonnet" }`
+- Other model aliases: `opus`, `haiku`
+
+### OpenAI
+
+- `addSecret("OPENAI_API_KEY", "OpenAI API key")`
+- Set model in config: `{ "model": "openai/gpt-4o" }`
+- Other aliases: `o3`, `gpt-4.1`
 
 ### Google Vertex AI
 
-- `addSecret("GOOGLE_APPLICATION_CREDENTIALS_JSON", "GCP service account key JSON content")` (secret)
-- `setEnvVar("CLAUDE_CODE_USE_VERTEX", "1")`
-- `setEnvVar("ANTHROPIC_VERTEX_PROJECT_ID", "<user's GCP project ID>")`
-- `setEnvVar("CLOUD_ML_REGION", "us-east5")` (or the user's preferred region)
-- The service account JSON should be written to a file and the path set in
-  `GOOGLE_APPLICATION_CREDENTIALS`. Use `addFile` to place it at
-  `/var/secrets/google/key.json`.
+- `addSecret("GOOGLE_APPLICATION_CREDENTIALS_JSON", "GCP service account key JSON")`
+- Use `addFile` to place the key at `/var/secrets/google/key.json`
+- `setEnvVar("GOOGLE_APPLICATION_CREDENTIALS", "/var/secrets/google/key.json")`
+- Set model in config: `{ "model": "google-vertex/claude-sonnet" }`
 
-### vLLM (self-hosted, direct connection)
+The service account needs the Vertex AI User role in the GCP project.
 
-For users running their own model server on OpenShift:
+### OpenRouter
 
-- `setEnvVar("ANTHROPIC_BASE_URL", "http://vllm-service.<namespace>.svc.cluster.local")`
-- `addSecret("ANTHROPIC_AUTH_TOKEN", "Bearer token for vLLM endpoint (can be a placeholder if no auth)")` (secret)
-- `setEnvVar("CLAUDE_MODEL", "<model-name>")` (e.g., the model ID served by vLLM)
+- `addSecret("OPENROUTER_API_KEY", "OpenRouter API key")`
+- Set model in config: `{ "model": "openrouter/anthropic/claude-sonnet" }`
 
-Note: Use `ANTHROPIC_AUTH_TOKEN` instead of `ANTHROPIC_API_KEY` to avoid
-interactive key confirmation prompts.
+OpenRouter provides access to many models through a single API.
 
-Recommend setting context window parameters if the model has a smaller context
-than Claude:
-- `setEnvVar("CLAUDE_CODE_AUTO_COMPACT_WINDOW", "32768")` (model's context window in tokens)
-- `setEnvVar("CLAUDE_CODE_MAX_OUTPUT_TOKENS", "4000")` (output token budget)
+### Custom / Self-Hosted (vLLM, OGX)
 
-### OGX Gateway (RHOAI model gateway to vLLM)
+For users running their own model server on OpenShift, define a custom
+provider in the config file:
 
-OGX is a Red Hat OpenShift AI gateway that provides an Anthropic-compatible API
-in front of vLLM-served models. Benefits: token counting, rate limiting, model
-routing.
+```json
+{
+  "model": "my-vllm/my-model",
+  "providers": {
+    "my-vllm": {
+      "name": "Self-hosted vLLM",
+      "env": ["VLLM_API_KEY"],
+      "api": {
+        "type": "native",
+        "url": "http://vllm-service.<namespace>.svc.cluster.local/v1",
+        "settings": {}
+      },
+      "models": {
+        "my-model": {
+          "name": "Llama 3.1 70B",
+          "limit": {
+            "context": 32768,
+            "output": 4096
+          }
+        }
+      }
+    }
+  }
+}
+```
 
-- `setEnvVar("ANTHROPIC_BASE_URL", "http://ogx-service.<namespace>.svc.cluster.local")`
-- `addSecret("ANTHROPIC_AUTH_TOKEN", "Bearer token for OGX endpoint")` (secret)
-- `setEnvVar("CLAUDE_MODEL", "vllm/<model-name>")` (OGX prefixes model names with the backend)
+- `addSecret("VLLM_API_KEY", "Bearer token for the vLLM endpoint")`
+- Ask the user for the service URL and model name.
+- Set `limit.context` and `limit.output` to match the served model's
+  capabilities; this controls compaction and output budgets.
 
-OGX configuration is deployed separately. Point the user to their cluster
-administrator if OGX is not yet available.
+For OGX (RHOAI model gateway in front of vLLM), the setup is the same but
+the URL points to the OGX service and the model ID may be prefixed with the
+backend name (e.g., `vllm/my-model`).
+
+## Model Selection
+
+Models are referenced as `provider/alias` strings. Use unpinned aliases
+(e.g., `anthropic/sonnet`) rather than version-pinned IDs so the agent
+automatically gets the latest version.
+
+Set the default model in the config file:
+
+```json
+{ "model": "anthropic/sonnet" }
+```
+
+Override per-agent (e.g., use a cheaper model for subagents):
+
+```json
+{
+  "model": "anthropic/sonnet",
+  "agents": {
+    "code": { "model": "anthropic/opus" }
+  }
+}
+```
+
+## MCP Server Configuration
+
+OpenCode supports MCP (Model Context Protocol) servers to extend agent
+capabilities. Configure them in the `mcp` section of the config file.
+
+### Local MCP server (stdio transport)
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "filesystem": {
+        "type": "local",
+        "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
+        "environment": { "DEBUG": "false" }
+      }
+    }
+  }
+}
+```
+
+The `command` field is an array (not a string). The server process runs as a
+child of OpenCode and communicates via stdio.
+
+### Remote MCP server (HTTP+SSE transport)
+
+```json
+{
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "headers": {
+          "Authorization": "Bearer ${GITHUB_PAT}"
+        }
+      }
+    }
+  }
+}
+```
+
+Token references like `${GITHUB_PAT}` are expanded from environment variables
+at runtime, so register them as secrets.
+
+### MCP server options
+
+Both local and remote servers support:
+- `disabled` (boolean): temporarily disable without removing
+- `timeout` (integer, ms): per-server timeout override
+
+Global MCP timeout: `{ "mcp": { "timeout": 30000 } }`
+
+## Permissions
+
+OpenCode's permission system controls which tools the agent can use without
+asking. Configure in the `permissions` field as an array of rules:
+
+```json
+{
+  "permissions": [
+    { "action": "Bash", "resource": "npm install *", "effect": "allow" },
+    { "action": "Bash", "resource": "git push *", "effect": "ask" },
+    { "action": "Bash", "resource": "rm -rf *", "effect": "deny" },
+    { "action": "Read", "resource": "/workspace/**", "effect": "allow" }
+  ]
+}
+```
+
+Each rule has:
+- `action`: tool name (e.g., `Bash`, `Read`, `Write`)
+- `resource`: glob pattern for the argument
+- `effect`: `"allow"`, `"deny"`, or `"ask"`
+
+For sandboxed containers where the agent runs non-interactively, a permissive
+default is common:
+
+```json
+{
+  "permissions": [
+    { "action": "*", "resource": "*", "effect": "allow" }
+  ]
+}
+```
+
+Discuss the security tradeoff with the user: permissive permissions let the
+agent work autonomously but mean it can make external calls (git push, API
+requests) without confirmation.
+
+## Git Credentials
+
+If the user needs the agent to push code or create PRs:
+
+- `addSecret("GITHUB_PAT", "GitHub Personal Access Token with repo scope")`
+- `setEnvVar("GIT_USER_NAME", "opencode-agent")` (or the user's preferred name)
+- `setEnvVar("GIT_USER_EMAIL", "opencode-agent@noreply.github.com")`
+
+Recommend scoping the PAT to specific repositories and using the minimum
+required permissions.
+
+## Persistence
+
+Recommend adding a volume for the workspace so agent state survives pod
+restarts:
+
+- `addVolume("/workspace", "1Gi", "ReadWriteOnce")`
+
+Session history, project context, and any cloned repositories persist here.
+The `.opencode/` directory within the workspace stores conversation history
+and session snapshots.
+
+Note: ReadWriteOnce volumes require `Recreate` deployment strategy (not
+rolling updates).
 
 ## RHOAI Integration Features
 
@@ -88,20 +280,19 @@ These are optional but available for users on Red Hat OpenShift AI.
 MLflow captures traces of agent sessions (tool calls, token counts, latency)
 for observability and debugging.
 
-- `addPackage("pip", ["mlflow[kubernetes]==3.12.0"])` to install MLflow with
-  the Kubernetes namespaced auth plugin.
+- `addPackage("pip", ["mlflow[kubernetes]==3.12.0"])`
 - `setEnvVar("MLFLOW_TRACKING_URI", "https://mlflow.<rhoai-namespace>.svc:8443/mlflow")`
-- `setEnvVar("MLFLOW_EXPERIMENT_NAME", "opencode-traces")` (default experiment name)
+- `setEnvVar("MLFLOW_EXPERIMENT_NAME", "opencode-traces")`
 - `setEnvVar("MLFLOW_TRACKING_AUTH", "kubernetes-namespaced")`
 
-Note: MLflow 3.12 is the recommended version. Later versions may change the
-auth plugin interface. The pod's service account needs `edit` role in its
-namespace for Kubernetes-namespaced auth.
+The pod's service account needs `edit` role in its namespace for
+Kubernetes-namespaced auth.
 
 ### Model Serving with vLLM
 
 Users can serve open-source models on OpenShift AI using vLLM and connect the
-agent to them. This avoids sending data to external APIs.
+agent to them. This avoids sending data to external APIs. See the
+"Custom / Self-Hosted" provider section above for config details.
 
 Discuss with the user:
 - What model they want to serve (and whether it fits their GPU resources)
@@ -116,74 +307,40 @@ Depending on the provider, these secrets are typically needed:
 | Provider | Secret Name | Description |
 |----------|-------------|-------------|
 | Anthropic | `ANTHROPIC_API_KEY` | API key from Anthropic |
+| OpenAI | `OPENAI_API_KEY` | API key from OpenAI |
+| OpenRouter | `OPENROUTER_API_KEY` | API key from OpenRouter |
 | Vertex AI | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | GCP service account key |
-| vLLM | `ANTHROPIC_AUTH_TOKEN` | Bearer token for vLLM endpoint |
-| OGX | `ANTHROPIC_AUTH_TOKEN` | Bearer token for OGX gateway |
-| Git | `GITHUB_PAT` | GitHub Personal Access Token for push/PR access |
+| Custom/vLLM | (user-defined) | Bearer token for endpoint |
+| Git | `GITHUB_PAT` | GitHub Personal Access Token |
 
 Always register secrets with `addSecret(name, description)`. Direct the user
-to enter the actual values in the **Env Vars tab** on the right side of the
+to enter the actual values in the **Configuration tab** on the right side of the
 screen.
 
-## Git Credentials
+## Example Complete Config
 
-If the user needs the agent to push code or create PRs:
+Here is a full example for Anthropic with a GitHub MCP server:
 
-- `addSecret("GITHUB_PAT", "GitHub Personal Access Token with repo scope")`
-- `setEnvVar("GIT_USER_NAME", "opencode-agent")` (or the user's preferred name)
-- `setEnvVar("GIT_USER_EMAIL", "opencode-agent@noreply.github.com")`
-
-Recommend scoping the PAT to specific repositories and using the minimum
-required permissions. Discuss the risks of giving an AI agent push access.
-
-## MCP Server Configuration
-
-OpenCode supports MCP (Model Context Protocol) servers to extend its
-capabilities. Configure via environment variable:
-
-- `setEnvVar("MCP_CONFIG_JSON", "<JSON string>")` for inline config, or
-- Use `addFile` to place a config file and set `setEnvVar("MCP_CONFIG_FILE", "/path/to/config.json")`
-
-Example MCP config for a GitHub MCP server:
 ```json
 {
-  "mcpServers": {
-    "github": {
-      "type": "http",
-      "url": "https://api.githubcopilot.com/mcp/",
-      "headers": {
-        "Authorization": "Bearer ${GITHUB_PAT}"
+  "model": "anthropic/sonnet",
+  "mcp": {
+    "servers": {
+      "github": {
+        "type": "remote",
+        "url": "https://api.githubcopilot.com/mcp/",
+        "headers": {
+          "Authorization": "Bearer ${GITHUB_PAT}"
+        }
       }
     }
-  }
+  },
+  "permissions": [
+    { "action": "Bash", "resource": "npm *", "effect": "allow" },
+    { "action": "Bash", "resource": "git *", "effect": "allow" },
+    { "action": "Read", "resource": "/workspace/**", "effect": "allow" },
+    { "action": "Write", "resource": "/workspace/**", "effect": "allow" }
+  ],
+  "snapshots": true
 }
 ```
-
-MCP credentials (like `${GITHUB_PAT}`) are expanded at runtime from container
-environment variables, so register them as secrets.
-
-## Persistence
-
-Recommend adding a volume for the workspace so agent state survives pod
-restarts:
-
-- `addVolume("/workspace", "1Gi", "ReadWriteOnce")`
-
-Session history, project context, and any cloned repositories persist here.
-Note: ReadWriteOnce volumes require `Recreate` deployment strategy (not
-rolling updates).
-
-## Security Considerations Specific to OpenCode
-
-- The container runs as non-root (UID 1001) with all capabilities dropped and
-  RuntimeDefault seccomp profile. This is enforced by OpenShift restricted-v2
-  SCC.
-- The OpenShell base image includes Landlock-based filesystem restrictions. The
-  agent can only write to `/sandbox`, `/workspace`, and `/tmp`.
-- If the user sets `SKIP_PERMISSIONS=true`, OpenCode can run commands without
-  confirmation prompts. This is convenient in a sandboxed container but means
-  the agent can make external calls (git push, API requests) without asking.
-  Discuss the tradeoff.
-- Agent credentials (API keys, PATs) are visible as environment variables
-  inside the container. The agent could potentially expose them in conversation
-  output. Recommend limited-scope credentials and credential rotation.

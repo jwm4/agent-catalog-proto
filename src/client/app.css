@@ -7,3 +7,25 @@
 .pf-v6-c-card {
   box-shadow: 0 0 0 1px #b8bbbe;
 }
+
+/*
+ * PF Chatbot embedded mode uses min-height: 100% on multiple elements,
+ * letting them grow with content instead of constraining to the parent.
+ * Override the full chain so MessageBox can scroll:
+ *   .pf-chatbot--embedded          min-height: 100% -> 0
+ *   .pf-chatbot-container--embedded min-height: 100% -> 0
+ *   .pf-chatbot__content           min-height: auto (flex default) -> 0
+ */
+.pf-chatbot.pf-chatbot--embedded {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.pf-chatbot-container--embedded {
+  min-height: 0;
+}
+
+.pf-chatbot--embedded .pf-chatbot__content {
+  min-height: 0;
+}

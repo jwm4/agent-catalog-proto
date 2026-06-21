@@ -13,7 +13,7 @@ export function generateContainerfile(spec: ContainerSpec): string {
     }
   }
 
-  if (spec.setupCommands.length > 0) {
+  if (spec.setupCommands && spec.setupCommands.length > 0) {
     lines.push('');
     lines.push('# --- Harness setup ---');
     for (const cmd of spec.setupCommands) {

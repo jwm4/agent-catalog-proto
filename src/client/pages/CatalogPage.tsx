@@ -106,14 +106,6 @@ export function CatalogPage() {
           </div>
         )}
 
-        <Content component="h2" style={{ marginTop: '24px' }}>
-          Agent starter kits
-        </Content>
-        <Content component="p">
-          Pre-built agent templates from the Red Hat agentic starter kits
-          collection.
-        </Content>
-
         <Gallery
           hasGutter
           minWidths={{ default: '360px' }}

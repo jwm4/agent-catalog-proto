@@ -112,10 +112,13 @@ export function applyAddVolume(
     .replace(/^\//, '')
     .replace(/\//g, '-')
     .replace(/[^a-z0-9-]/gi, '');
-  return {
-    ...spec,
-    volumes: [...spec.volumes, { name, mountPath, size, accessMode }],
-  };
+  const newVolume = { name, mountPath, size, accessMode };
+  const existing = spec.volumes.findIndex((v) => v.mountPath === mountPath);
+  const volumes =
+    existing >= 0
+      ? spec.volumes.map((v, i) => (i === existing ? newVolume : v))
+      : [...spec.volumes, newVolume];
+  return { ...spec, volumes };
 }
 
 export function applySetEntrypoint(
