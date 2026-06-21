@@ -1,0 +1,708 @@
+openapi: 3.1.0
+info:
+  title: Agent Catalog API
+  version: 0.1.0
+  description: >
+    REST API for the Agent Catalog Prototype. Provides endpoints to browse
+    agentic harness definitions, manage customization sessions with an AI
+    assistant, build container images on OpenShift, and deploy them.
+
+servers:
+  - url: http://localhost:3001
+    description: Local development server
+
+paths:
+  /api/catalog:
+    get:
+      summary: List all harness definitions
+      operationId: listHarnesses
+      tags: [Catalog]
+      responses:
+        "200":
+          description: Array of harness summaries
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HarnessSummary"
+
+  /api/catalog/{id}:
+    get:
+      summary: Get a harness definition by ID
+      operationId: getHarness
+      tags: [Catalog]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          example: opencode
+      responses:
+        "200":
+          description: Full harness definition
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HarnessDefinition"
+        "404":
+          description: Harness not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/session:
+    post:
+      summary: Create a new customization session
+      operationId: createSession
+      tags: [Session]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [harnessId]
+              properties:
+                harnessId:
+                  type: string
+                  example: opencode
+      responses:
+        "200":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [sessionId]
+                properties:
+                  sessionId:
+                    type: string
+                    format: uuid
+        "400":
+          description: Missing harnessId
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Harness not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/session/{id}/message:
+    post:
+      summary: Send a chat message to the AI agent
+      operationId: sendMessage
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [message]
+              properties:
+                message:
+                  type: string
+      responses:
+        "200":
+          description: Agent response (SSE stream or JSON depending on goosed availability)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  content:
+                    type: string
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "502":
+          description: Goose proxy error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/session/{id}/spec:
+    get:
+      summary: Get the current ContainerSpec for a session
+      operationId: getSpec
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Current container spec
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContainerSpec"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    post:
+      summary: Update the ContainerSpec for a session
+      operationId: updateSpec
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ContainerSpec"
+      responses:
+        "200":
+          description: Spec updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ok:
+                    type: boolean
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/session/{id}/welcome:
+    get:
+      summary: Get the AI-generated welcome message for a session
+      operationId: getWelcomeMessage
+      tags: [Session]
+      parameters:
+        - $ref: "#/components/parameters/SessionId"
+      responses:
+        "200":
+          description: Welcome message ready
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [message]
+                properties:
+                  message:
+                    type: string
+        "202":
+          description: Welcome message still being generated
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [status]
+                properties:
+                  status:
+                    type: string
+                    enum: [generating]
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/build:
+    post:
+      summary: Start a container image build (SSE stream)
+      operationId: startBuild
+      tags: [Build]
+      description: >
+        Initiates an OpenShift BuildConfig-based container build.
+        Returns a server-sent event stream with build log lines and
+        status updates. The stream ends with a `data: [DONE]` sentinel.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                namespace:
+                  type: string
+                  description: OpenShift namespace (defaults to current oc project)
+                secretValues:
+                  type: object
+                  additionalProperties:
+                    type: string
+                  description: Secret key-value pairs held in memory only for build
+      responses:
+        "200":
+          description: SSE stream of build events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: >
+                  Newline-delimited SSE events. Each event is
+                  `data: {"type":"log","line":"..."}` or
+                  `data: {"type":"status","phase":"..."}`.
+                  Final event is `data: [DONE]`.
+        "400":
+          description: Missing sessionId or no spec
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/deploy:
+    post:
+      summary: Deploy a built container image to OpenShift
+      operationId: deploy
+      tags: [Deploy]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [sessionId]
+              properties:
+                sessionId:
+                  type: string
+                  format: uuid
+                namespace:
+                  type: string
+                  description: OpenShift namespace (defaults to current oc project)
+      responses:
+        "200":
+          description: Deployment succeeded
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deploymentInfo]
+                properties:
+                  deploymentInfo:
+                    $ref: "#/components/schemas/DeploymentInfo"
+        "400":
+          description: Missing sessionId, no spec, or build not complete
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Session not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "500":
+          description: Deploy failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/deployments:
+    get:
+      summary: List all deployments
+      operationId: listDeployments
+      tags: [Deploy]
+      responses:
+        "200":
+          description: Array of deployment info objects
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/DeploymentInfo"
+
+  /api/deployments/{sessionId}:
+    get:
+      summary: Get deployment info for a session
+      operationId: getDeployment
+      tags: [Deploy]
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "200":
+          description: Deployment info
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deploymentInfo]
+                properties:
+                  deploymentInfo:
+                    $ref: "#/components/schemas/DeploymentInfo"
+        "404":
+          description: Deployment not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/namespace/default:
+    get:
+      summary: Get the default OpenShift namespace
+      operationId: getDefaultNamespace
+      tags: [Deploy]
+      responses:
+        "200":
+          description: Current oc project namespace
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [namespace]
+                properties:
+                  namespace:
+                    type: string
+                    example: agent-catalog
+
+components:
+  parameters:
+    SessionId:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+      description: Session identifier
+
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+
+    HarnessSummary:
+      type: object
+      required: [id, name, description, tags, icon, license, documentationUrl]
+      properties:
+        id:
+          type: string
+          example: opencode
+        name:
+          type: string
+          example: OpenCode
+        description:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        icon:
+          type: string
+        license:
+          type: string
+          enum: [open-source, proprietary]
+        documentationUrl:
+          type: string
+          format: uri
+
+    HarnessDefinition:
+      type: object
+      required:
+        - id
+        - name
+        - description
+        - longDescription
+        - icon
+        - tags
+        - license
+        - hasBaseImage
+        - baseConfig
+        - systemPrompt
+        - documentationUrl
+        - readme
+        - backends
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        longDescription:
+          type: string
+        icon:
+          type: string
+        tags:
+          type: array
+          items:
+            type: string
+        license:
+          type: string
+          enum: [open-source, proprietary]
+        hasBaseImage:
+          type: boolean
+        baseConfig:
+          $ref: "#/components/schemas/ContainerSpec"
+        systemPrompt:
+          type: string
+        documentationUrl:
+          type: string
+          format: uri
+        readme:
+          type: string
+        backends:
+          type: array
+          items:
+            $ref: "#/components/schemas/BackendOption"
+        configSchema:
+          $ref: "#/components/schemas/HarnessConfigSchema"
+
+    BackendOption:
+      type: object
+      required: [id, name, description, requiredEnvVars]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        description:
+          type: string
+        requiredEnvVars:
+          type: array
+          items:
+            type: string
+
+    ContainerSpec:
+      type: object
+      required:
+        - harnessId
+        - baseImage
+        - buildArgs
+        - setupCommands
+        - runCommands
+        - envVars
+        - secrets
+        - files
+        - volumes
+        - entrypoint
+        - labels
+        - exposedPorts
+      properties:
+        harnessId:
+          type: string
+        baseImage:
+          type: string
+          example: registry.access.redhat.com/ubi10/ubi-minimal:latest
+        buildArgs:
+          type: object
+          additionalProperties:
+            type: string
+        setupCommands:
+          type: array
+          items:
+            type: string
+        runCommands:
+          type: array
+          items:
+            type: string
+        envVars:
+          type: array
+          items:
+            $ref: "#/components/schemas/EnvVarSpec"
+        secrets:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecretSpec"
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileSpec"
+        volumes:
+          type: array
+          items:
+            $ref: "#/components/schemas/VolumeSpec"
+        entrypoint:
+          type: array
+          items:
+            type: string
+        labels:
+          type: object
+          additionalProperties:
+            type: string
+        exposedPorts:
+          type: array
+          items:
+            type: integer
+
+    EnvVarSpec:
+      type: object
+      required: [name, value]
+      properties:
+        name:
+          type: string
+        value:
+          type: string
+
+    SecretSpec:
+      type: object
+      required: [name, description]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+
+    FileSpec:
+      type: object
+      required: [sourcePath, destPath, sourceType, mountType]
+      properties:
+        sourcePath:
+          type: string
+        destPath:
+          type: string
+        sourceType:
+          type: string
+          enum: [local, url, inline]
+        content:
+          type: string
+        mountType:
+          type: string
+          enum: [copy, configmap]
+
+    VolumeSpec:
+      type: object
+      required: [name, mountPath, size, accessMode]
+      properties:
+        name:
+          type: string
+        mountPath:
+          type: string
+        size:
+          type: string
+          example: 1Gi
+        accessMode:
+          type: string
+          example: ReadWriteOnce
+        storageClass:
+          type: string
+
+    DeploymentInfo:
+      type: object
+      required: [sessionId, deploymentName, namespace, phase, imageRef]
+      properties:
+        sessionId:
+          type: string
+          format: uuid
+        deploymentName:
+          type: string
+        namespace:
+          type: string
+        phase:
+          type: string
+          enum: [pending, applying, waiting, running, failed]
+        imageRef:
+          type: string
+        podName:
+          type: string
+        connectCommand:
+          type: string
+        routeUrl:
+          type: string
+        portForwardCommand:
+          type: string
+        error:
+          type: string
+
+    HarnessConfigSchema:
+      type: object
+      required: [id, sections]
+      properties:
+        id:
+          type: string
+        version:
+          type: string
+        sections:
+          type: array
+          items:
+            type: object
+            required: [id, title]
+            properties:
+              id:
+                type: string
+              title:
+                type: string
+              description:
+                type: string
+              collapsed:
+                type: boolean
+              dynamic:
+                type: boolean
+              options:
+                type: array
+                items:
+                  type: object
+                  required: [id, label]
+                  properties:
+                    id:
+                      type: string
+                    label:
+                      type: string
+                    default:
+                      type: boolean
+              fields:
+                type: array
+                items:
+                  $ref: "#/components/schemas/HarnessConfigField"
+
+    HarnessConfigField:
+      type: object
+      required: [name, label, type]
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          enum: [text, secret, select, boolean]
+        description:
+          type: string
+        default:
+          type: string
+        placeholder:
+          type: string
+        choices:
+          type: array
+          items:
+            oneOf:
+              - type: string
+              - type: object
+                required: [label, value]
+                properties:
+                  label:
+                    type: string
+                  value:
+                    type: string
