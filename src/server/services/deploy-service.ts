@@ -15,7 +15,7 @@ kc.loadFromDefault();
 
 const objectApi = k8s.KubernetesObjectApi.makeApiClient(kc);
 
-async function createIfNotExists(
+async function applyResource(
   spec: k8s.KubernetesObject,
 ): Promise<string> {
   const name = spec.metadata?.name || 'unknown';
@@ -24,7 +24,11 @@ async function createIfNotExists(
     await objectApi.create(spec);
   } catch (err: unknown) {
     const statusCode = (err as { statusCode?: number }).statusCode;
-    if (statusCode !== 409) throw err;
+    if (statusCode === 409) {
+      await objectApi.patch(spec);
+    } else {
+      throw err;
+    }
   }
   return `${kind}/${name}`;
 }
@@ -37,33 +41,33 @@ export async function applyManifests(
 
   for (const pvc of manifests.pvcs) {
     pvc.metadata = { ...pvc.metadata, namespace };
-    created.push(await createIfNotExists(pvc));
+    created.push(await applyResource(pvc));
   }
 
   for (const cm of manifests.configMaps) {
     cm.metadata = { ...cm.metadata, namespace };
-    created.push(await createIfNotExists(cm));
+    created.push(await applyResource(cm));
   }
 
   if (manifests.secret) {
     manifests.secret.metadata = { ...manifests.secret.metadata, namespace };
-    created.push(await createIfNotExists(manifests.secret));
+    created.push(await applyResource(manifests.secret));
   }
 
   manifests.deployment.metadata = {
     ...manifests.deployment.metadata,
     namespace,
   };
-  created.push(await createIfNotExists(manifests.deployment));
+  created.push(await applyResource(manifests.deployment));
 
   if (manifests.service) {
     manifests.service.metadata = { ...manifests.service.metadata, namespace };
-    created.push(await createIfNotExists(manifests.service));
+    created.push(await applyResource(manifests.service));
   }
 
   if (manifests.route) {
     manifests.route.metadata = { ...manifests.route.metadata, namespace };
-    created.push(await createIfNotExists(manifests.route));
+    created.push(await applyResource(manifests.route));
   }
 
   return created;

@@ -62,9 +62,20 @@ function generateContainerfile(spec: ContainerSpec): string {
     }
   }
 
+  lines.push('');
+  lines.push('RUN useradd -m -u 1000 -g 0 agent && chmod -R g=u /home/agent');
+  lines.push('ENV HOME=/home/agent');
+  lines.push('USER 1000');
+
+  const workdir = spec.volumes.find((v) => v.mountPath === '/workspace');
+  lines.push(`WORKDIR ${workdir ? workdir.mountPath : '/home/agent'}`);
+
   if (spec.entrypoint.length > 0) {
     lines.push('');
     lines.push(`ENTRYPOINT ${JSON.stringify(spec.entrypoint)}`);
+    lines.push('CMD ["-c", "exec sleep infinity"]');
+  } else {
+    lines.push('CMD ["sleep", "infinity"]');
   }
 
   lines.push('');

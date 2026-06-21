@@ -1,5 +1,6 @@
 import { Router } from 'express';
-import { execSync } from 'child_process';
+import { exec } from 'child_process';
+import { promisify } from 'util';
 import { rm } from 'fs/promises';
 import {
   getSession,
@@ -13,11 +14,13 @@ import {
   detectNamespace,
 } from '../services/build-backend.js';
 
-function ensureNamespaceExists(namespace: string): void {
+const execAsync = promisify(exec);
+
+async function ensureNamespaceExists(namespace: string): Promise<void> {
   try {
-    execSync(`oc get project ${namespace}`, { stdio: 'ignore' });
+    await execAsync(`oc get project ${namespace}`);
   } catch {
-    execSync(`oc new-project ${namespace}`, { encoding: 'utf-8' });
+    await execAsync(`oc new-project ${namespace}`);
   }
 }
 
@@ -29,11 +32,13 @@ function resourceName(harnessId: string, sessionId: string): string {
 }
 
 router.post('/api/build', async (req, res) => {
+  console.log('[build] POST /api/build received');
   const { sessionId, namespace: nsOverride, secretValues: secrets } = req.body as {
     sessionId?: string;
     namespace?: string;
     secretValues?: Record<string, string>;
   };
+  console.log('[build] sessionId:', sessionId, 'namespace:', nsOverride);
 
   if (!sessionId) {
     res.status(400).json({ error: 'sessionId is required' });
@@ -62,6 +67,7 @@ router.post('/api/build', async (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   function sendEvent(data: object): void {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useRef, useCallback } from 'react';
 import {
   Card,
   CardBody,
@@ -12,18 +12,33 @@ import {
 } from '@patternfly/react-core';
 import type { BuildPhase, DeployPhase, DeploymentInfo } from '@shared/types';
 
-interface BuildDeployPanelProps {
-  sessionId: string;
-  secretValues: Record<string, string>;
-  namespace: string;
+export type BuildStage = 'building' | 'deploying' | 'done' | 'error';
+
+export interface BuildState {
+  stage: BuildStage;
+  buildPhase: BuildPhase;
+  deployPhase: DeployPhase;
+  logLines: string[];
+  error: string | null;
+  deploymentInfo: DeploymentInfo | null;
+}
+
+export const initialBuildState: BuildState = {
+  stage: 'building',
+  buildPhase: 'pending',
+  deployPhase: 'pending',
+  logLines: [],
+  error: null,
+  deploymentInfo: null,
+};
+
+export interface BuildDeployPanelProps {
+  buildState: BuildState;
   onClose: () => void;
 }
 
-type Stage = 'building' | 'deploying' | 'done' | 'error';
-
 function buildStepVariant(
   buildPhase: BuildPhase,
-  _stage: Stage,
 ): 'pending' | 'info' | 'success' | 'danger' {
   if (buildPhase === 'failed') return 'danger';
   if (buildPhase === 'complete') return 'success';
@@ -33,7 +48,6 @@ function buildStepVariant(
 
 function deployStepVariant(
   deployPhase: DeployPhase,
-  _stage: Stage,
 ): 'pending' | 'info' | 'success' | 'danger' {
   if (deployPhase === 'failed') return 'danger';
   if (deployPhase === 'running') return 'success';
@@ -42,21 +56,12 @@ function deployStepVariant(
 }
 
 export function BuildDeployPanel({
-  sessionId,
-  secretValues,
-  namespace,
+  buildState,
   onClose,
 }: BuildDeployPanelProps) {
-  const [stage, setStage] = useState<Stage>('building');
-  const [buildPhase, setBuildPhase] = useState<BuildPhase>('pending');
-  const [deployPhase, setDeployPhase] = useState<DeployPhase>('pending');
-  const [logLines, setLogLines] = useState<string[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [deploymentInfo, setDeploymentInfo] = useState<DeploymentInfo | null>(
-    null,
-  );
+  const { stage, buildPhase, deployPhase, logLines, error, deploymentInfo } =
+    buildState;
   const logEndRef = useRef<HTMLDivElement>(null);
-  const startedRef = useRef(false);
 
   const scrollToBottom = useCallback(() => {
     logEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -66,137 +71,30 @@ export function BuildDeployPanel({
     scrollToBottom();
   }, [logLines, scrollToBottom]);
 
-  useEffect(() => {
-    if (startedRef.current) return;
-    startedRef.current = true;
-
-    let aborted = false;
-
-    async function runBuildAndDeploy() {
-      try {
-        const buildRes = await fetch('/api/build', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, secretValues, namespace }),
-        });
-
-        if (!buildRes.ok) {
-          const err = await buildRes.json();
-          throw new Error((err as { error: string }).error || 'Build request failed');
-        }
-
-        const reader = buildRes.body?.getReader();
-        if (!reader) throw new Error('No response body');
-        const decoder = new TextDecoder();
-        let buffer = '';
-        let imageRef: string | undefined;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (aborted) return;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop() || '';
-
-          for (const line of lines) {
-            if (!line.startsWith('data: ')) continue;
-            const payload = line.slice(6).trim();
-            if (payload === '[DONE]') continue;
-
-            try {
-              const event = JSON.parse(payload) as {
-                type: string;
-                line?: string;
-                phase?: BuildPhase;
-                imageRef?: string;
-                error?: string;
-              };
-
-              if (event.type === 'log' && event.line) {
-                setLogLines((prev) => [...prev, event.line!]);
-              } else if (event.type === 'status') {
-                if (event.phase) setBuildPhase(event.phase);
-                if (event.imageRef) imageRef = event.imageRef;
-                if (event.phase === 'failed') {
-                  throw new Error(event.error || 'Build failed');
-                }
-              }
-            } catch (parseErr) {
-              if (parseErr instanceof SyntaxError) continue;
-              throw parseErr;
-            }
-          }
-        }
-
-        if (aborted) return;
-        if (!imageRef) throw new Error('Build completed but no image reference returned');
-
-        setStage('deploying');
-        setLogLines((prev) => [...prev, '', '--- Deploying ---', '']);
-
-        const deployRes = await fetch('/api/deploy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, namespace }),
-        });
-
-        if (!deployRes.ok) {
-          const err = await deployRes.json();
-          throw new Error((err as { error: string }).error || 'Deploy failed');
-        }
-
-        const deployData = (await deployRes.json()) as {
-          deploymentInfo: DeploymentInfo;
-        };
-
-        if (aborted) return;
-        setDeploymentInfo(deployData.deploymentInfo);
-        setDeployPhase(deployData.deploymentInfo.phase);
-        setStage('done');
-        setLogLines((prev) => [
-          ...prev,
-          `Pod ${deployData.deploymentInfo.podName || 'unknown'} is running`,
-        ]);
-      } catch (err) {
-        if (aborted) return;
-        const message = err instanceof Error ? err.message : 'Unknown error';
-        setError(message);
-        setStage('error');
-        setLogLines((prev) => [...prev, `ERROR: ${message}`]);
-      }
-    }
-
-    runBuildAndDeploy();
-
-    return () => {
-      aborted = true;
-    };
-  }, [sessionId, secretValues, namespace]);
-
   return (
     <Card>
       <CardTitle>Build & Deploy</CardTitle>
       <CardBody>
         <ProgressStepper style={{ marginBottom: '1rem' }}>
           <ProgressStep
-            variant={buildStepVariant(buildPhase, stage)}
+            variant={buildStepVariant(buildPhase)}
             isCurrent={stage === 'building'}
             description={
-              buildPhase === 'running' ? 'Building container image...' : undefined
+              buildPhase === 'running'
+                ? 'Building container image...'
+                : undefined
             }
           >
             Build
           </ProgressStep>
           <ProgressStep
-            variant={deployStepVariant(deployPhase, stage)}
+            variant={deployStepVariant(deployPhase)}
             isCurrent={stage === 'deploying'}
             description={
               deployPhase === 'waiting'
-                ? 'Waiting for pod...'
+                ? 'Waiting for pod to start (30-60s)...'
                 : deployPhase === 'applying'
-                  ? 'Applying manifests...'
+                  ? 'Applying manifests and waiting for pod...'
                   : undefined
             }
           >
@@ -212,7 +110,8 @@ export function BuildDeployPanel({
 
         <div
           style={{
-            background: 'var(--pf-t--global--background--color--secondary--default)',
+            background:
+              'var(--pf-t--global--background--color--secondary--default)',
             padding: '12px',
             borderRadius: '6px',
             maxHeight: '200px',
@@ -229,22 +128,32 @@ export function BuildDeployPanel({
             </span>
           )}
           {logLines.map((line, i) => (
-            <div key={i}>{line || ' '}</div>
+            <div key={i}>{line || ' '}</div>
           ))}
           <div ref={logEndRef} />
         </div>
 
         {error && (
-          <Alert variant="danger" isInline title="Error" style={{ marginBottom: '1rem' }}>
+          <Alert
+            variant="danger"
+            isInline
+            title="Error"
+            style={{ marginBottom: '1rem' }}
+          >
             {error}
           </Alert>
         )}
 
         {stage === 'done' && deploymentInfo && (
           <div>
-            <Alert variant="success" isInline title="Deployment ready" style={{ marginBottom: '1rem' }}>
-              Pod <strong>{deploymentInfo.podName}</strong> is running in namespace{' '}
-              <strong>{deploymentInfo.namespace}</strong>.
+            <Alert
+              variant="success"
+              isInline
+              title="Deployment ready"
+              style={{ marginBottom: '1rem' }}
+            >
+              Pod <strong>{deploymentInfo.podName}</strong> is running in
+              namespace <strong>{deploymentInfo.namespace}</strong>.
             </Alert>
 
             {deploymentInfo.connectCommand && (

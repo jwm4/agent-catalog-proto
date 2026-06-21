@@ -15,6 +15,16 @@ export default defineConfig({
   server: {
     port: 5173,
     proxy: {
+      '/api/build': {
+        target: 'http://localhost:3001',
+        selfHandleResponse: true,
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes, _req, clientRes) => {
+            clientRes.writeHead(proxyRes.statusCode!, proxyRes.headers);
+            proxyRes.pipe(clientRes);
+          });
+        },
+      },
       '/api': 'http://localhost:3001',
       '/ws': {
         target: 'ws://localhost:3001',

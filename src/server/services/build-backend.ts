@@ -1,4 +1,8 @@
-import { spawn, execSync } from 'child_process';
+import { spawn, exec, execSync } from 'child_process';
+import { promisify } from 'util';
+
+const execAsync = promisify(exec);
+
 export interface BuildBackend {
   prepare(name: string, namespace: string): Promise<void>;
   startBuild(
@@ -10,13 +14,14 @@ export interface BuildBackend {
   cleanup(name: string, namespace: string): Promise<void>;
 }
 
-function oc(args: string[]): string {
-  return execSync(['oc', ...args].join(' '), { encoding: 'utf-8' }).trim();
+async function oc(args: string[]): Promise<string> {
+  const { stdout } = await execAsync(['oc', ...args].join(' '));
+  return stdout.trim();
 }
 
 export function detectNamespace(): string {
   try {
-    return oc(['project', '-q']);
+    return execSync('oc project -q', { encoding: 'utf-8' }).trim();
   } catch {
     return 'default';
   }
@@ -47,17 +52,13 @@ export class BuildConfigBackend implements BuildBackend {
     });
 
     try {
-      execSync(`echo '${isJson}' | oc apply -f - -n ${namespace}`, {
-        stdio: 'pipe',
-      });
+      await execAsync(`echo '${isJson}' | oc apply -f - -n ${namespace}`);
     } catch {
       // ImageStream may already exist
     }
 
     try {
-      execSync(`echo '${bcJson}' | oc apply -f - -n ${namespace}`, {
-        stdio: 'pipe',
-      });
+      await execAsync(`echo '${bcJson}' | oc apply -f - -n ${namespace}`);
     } catch {
       // BuildConfig may already exist
     }
@@ -122,7 +123,7 @@ export class BuildConfigBackend implements BuildBackend {
   }
 
   async getImageRef(name: string, namespace: string): Promise<string> {
-    const output = oc([
+    return oc([
       'get',
       'imagestreamtag',
       `${name}:latest`,
@@ -131,12 +132,11 @@ export class BuildConfigBackend implements BuildBackend {
       '-o',
       'jsonpath={.image.dockerImageReference}',
     ]);
-    return output;
   }
 
   async cleanup(name: string, namespace: string): Promise<void> {
     try {
-      oc(['delete', 'buildconfig', name, '-n', namespace, '--ignore-not-found']);
+      await oc(['delete', 'buildconfig', name, '-n', namespace, '--ignore-not-found']);
     } catch {
       // best effort
     }

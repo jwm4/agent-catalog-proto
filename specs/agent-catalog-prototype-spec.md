@@ -1030,8 +1030,9 @@ RUN curl -fsSL \
     | tar -xz -C /usr/local/bin --strip-components=2 \
       "gh_${GH_VERSION}_linux_amd64/bin/gh"
 
-RUN useradd -m -u 1001 -g 0 claude-agent
-USER 1001
+RUN useradd -m -u 1000 -g 0 claude-agent && chmod -R g=u /home/claude-agent
+ENV HOME=/home/claude-agent
+USER 1000
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 WORKDIR /workspace/projects
@@ -1176,6 +1177,11 @@ but the existing releases remain functional.
 
 - Add Goose recipes and base configs for Claude Code, OpenClaw, Codex.
 - Env Vars, Files, and Volumes tabs in the spec viewer.
+- Viewable file contents: clicking a file in the Files tab expands or opens a
+  read-only view of its content. For inline files (e.g., generated config.json),
+  the content is already in the ContainerSpec and can be displayed directly. For
+  local or URL-sourced files, the backend fetches and returns the content on
+  demand.
 - Secret handling (mark as sensitive, generate K8s Secret manifests).
 - Error handling and validation in the AI conversation.
 - OpenShift-specific manifest generation (Route, Shipwright Build).
