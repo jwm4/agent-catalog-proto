@@ -14,7 +14,7 @@ import {
   Tabs,
   TabTitleText,
 } from '@patternfly/react-core';
-import { harnesses } from '@client/data/harnesses';
+import { harnesses } from '@shared/harnesses';
 
 const PER_PAGE = 10;
 

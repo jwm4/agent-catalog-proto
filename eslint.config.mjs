@@ -26,4 +26,26 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
     },
   },
+  {
+    files: ['src/client/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/server/*', '@server/*'],
+          message: 'Client code cannot import server modules. Use @shared/* for shared types.',
+        }],
+      }],
+    },
+  },
+  {
+    files: ['src/server/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': ['error', {
+        patterns: [{
+          group: ['**/client/*', '@client/*'],
+          message: 'Server code cannot import client modules. Use @shared/* for shared types.',
+        }],
+      }],
+    },
+  },
 );

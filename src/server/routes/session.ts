@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { getHarnessById } from '../../client/data/harnesses.js';
+import { getHarnessById } from '../../shared/harnesses.js';
 import {
   createSession,
   getSpec,

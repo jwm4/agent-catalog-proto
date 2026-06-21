@@ -13,7 +13,7 @@ import {
   TextInput,
 } from '@patternfly/react-core';
 import type { ContainerSpec, BuildPhase, DeploymentInfo } from '@shared/types';
-import { getHarnessById } from '@client/data/harnesses';
+import { getHarnessById } from '@shared/harnesses';
 import { ChatPane } from '@client/components/ChatPane';
 import { SpecViewerPane } from '@client/components/SpecViewerPane';
 import {

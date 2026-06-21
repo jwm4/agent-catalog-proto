@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { harnesses, getHarnessById } from '../../client/data/harnesses.js';
+import { harnesses, getHarnessById } from '../../shared/harnesses.js';
 
 const router = Router();
 

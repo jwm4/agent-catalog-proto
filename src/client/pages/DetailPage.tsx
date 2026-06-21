@@ -26,7 +26,7 @@ import {
   ExternalLinkAltIcon,
   GithubIcon,
 } from '@patternfly/react-icons';
-import { getHarnessById } from '@client/data/harnesses';
+import { getHarnessById } from '@shared/harnesses';
 
 export function DetailPage() {
   const { id } = useParams<{ id: string }>();
