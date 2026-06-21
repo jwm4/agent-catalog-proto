@@ -131,4 +131,8 @@ router.get('/api/deployments/:sessionId', async (req, res) => {
   res.json({ deploymentInfo: info });
 });
 
+router.get('/api/namespace/default', async (_req, res) => {
+  res.json({ namespace: detectNamespace() });
+});
+
 export default router;

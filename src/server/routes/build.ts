@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { execSync } from 'child_process';
 import { rm } from 'fs/promises';
 import {
   getSession,
@@ -11,6 +12,14 @@ import {
   BuildConfigBackend,
   detectNamespace,
 } from '../services/build-backend.js';
+
+function ensureNamespaceExists(namespace: string): void {
+  try {
+    execSync(`oc get project ${namespace}`, { stdio: 'ignore' });
+  } catch {
+    execSync(`oc new-project ${namespace}`, { encoding: 'utf-8' });
+  }
+}
 
 const router = Router();
 const buildBackend = new BuildConfigBackend();
@@ -62,6 +71,8 @@ router.post('/api/build', async (req, res) => {
   let contextDir: string | undefined;
 
   try {
+    ensureNamespaceExists(namespace);
+
     updateBuildStatus(sessionId, {
       buildName: name,
       phase: 'pending',

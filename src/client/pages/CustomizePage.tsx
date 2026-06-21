@@ -8,7 +8,9 @@ import {
   Card,
   CardBody,
   Content,
+  FormGroup,
   PageSection,
+  TextInput,
 } from '@patternfly/react-core';
 import type { ContainerSpec } from '@shared/types';
 import { getHarnessById } from '@client/data/harnesses';
@@ -61,7 +63,15 @@ export function CustomizePage() {
   const [spec, setSpec] = useState<ContainerSpec | null>(null);
   const [secretValues, setSecretValues] = useState<Record<string, string>>({});
   const [showBuildPanel, setShowBuildPanel] = useState(false);
+  const [namespace, setNamespace] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
+
+  useEffect(() => {
+    fetch('/api/namespace/default')
+      .then((res) => res.json())
+      .then((data: { namespace: string }) => setNamespace(data.namespace))
+      .catch(() => setNamespace('default'));
+  }, []);
 
   const handleSecretChange = useCallback((name: string, value: string) => {
     setSecretValues((prev) => ({ ...prev, [name]: value }));
@@ -196,17 +206,27 @@ export function CustomizePage() {
             <BuildDeployPanel
               sessionId={sessionId}
               secretValues={secretValues}
+              namespace={namespace}
               onClose={() => setShowBuildPanel(false)}
             />
           )}
-          <Button
-            variant="primary"
-            isDisabled={!sessionId || !spec || showBuildPanel}
-            onClick={() => setShowBuildPanel(true)}
-            style={{ alignSelf: 'flex-end', flexShrink: 0 }}
-          >
-            Build & Deploy
-          </Button>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '12px', flexShrink: 0 }}>
+            <FormGroup label="Namespace" fieldId="namespace" style={{ flex: 1 }}>
+              <TextInput
+                id="namespace"
+                value={namespace}
+                onChange={(_e, val) => setNamespace(val)}
+                placeholder="openshift namespace"
+              />
+            </FormGroup>
+            <Button
+              variant="primary"
+              isDisabled={!sessionId || !spec || showBuildPanel || !namespace}
+              onClick={() => setShowBuildPanel(true)}
+            >
+              Build & Deploy
+            </Button>
+          </div>
         </div>
       </div>
     </div>

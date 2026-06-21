@@ -15,6 +15,7 @@ import type { BuildPhase, DeployPhase, DeploymentInfo } from '@shared/types';
 interface BuildDeployPanelProps {
   sessionId: string;
   secretValues: Record<string, string>;
+  namespace: string;
   onClose: () => void;
 }
 
@@ -43,6 +44,7 @@ function deployStepVariant(
 export function BuildDeployPanel({
   sessionId,
   secretValues,
+  namespace,
   onClose,
 }: BuildDeployPanelProps) {
   const [stage, setStage] = useState<Stage>('building');
@@ -75,7 +77,7 @@ export function BuildDeployPanel({
         const buildRes = await fetch('/api/build', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId, secretValues }),
+          body: JSON.stringify({ sessionId, secretValues, namespace }),
         });
 
         if (!buildRes.ok) {
@@ -137,7 +139,7 @@ export function BuildDeployPanel({
         const deployRes = await fetch('/api/deploy', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ sessionId }),
+          body: JSON.stringify({ sessionId, namespace }),
         });
 
         if (!deployRes.ok) {
@@ -171,7 +173,7 @@ export function BuildDeployPanel({
     return () => {
       aborted = true;
     };
-  }, [sessionId, secretValues]);
+  }, [sessionId, secretValues, namespace]);
 
   return (
     <Card>
