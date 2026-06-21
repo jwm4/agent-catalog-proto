@@ -71,14 +71,14 @@ router.post('/api/build', async (req, res) => {
   let contextDir: string | undefined;
 
   try {
-    ensureNamespaceExists(namespace);
-
     updateBuildStatus(sessionId, {
       buildName: name,
       phase: 'pending',
       logLines: [],
     });
     sendEvent({ type: 'status', phase: 'pending' });
+    sendEvent({ type: 'log', line: `Ensuring namespace ${namespace} exists...` });
+    ensureNamespaceExists(namespace);
 
     contextDir = await assembleBuildContext(spec);
     sendEvent({ type: 'log', line: 'Build context assembled' });

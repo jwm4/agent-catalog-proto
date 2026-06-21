@@ -99,7 +99,12 @@ export function applyAddFile(
     content,
     mountType: 'copy',
   };
-  return { ...spec, files: [...spec.files, file] };
+  const existing = spec.files.findIndex((f) => f.destPath === destPath);
+  const files =
+    existing >= 0
+      ? spec.files.map((f, i) => (i === existing ? file : f))
+      : [...spec.files, file];
+  return { ...spec, files };
 }
 
 export function applyAddVolume(
