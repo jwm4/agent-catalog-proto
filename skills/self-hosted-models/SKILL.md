@@ -1,3 +1,11 @@
+---
+name: self-hosted-models
+description: >
+  Self-hosted model configuration guide. Tested models with GPU requirements,
+  context window configuration, model alias mapping, vLLM vs OGX setup,
+  endpoint URL formats, authentication, and troubleshooting.
+---
+
 # Self-Hosted Model Reference
 
 Use this guide when the user wants to connect their agent to a self-hosted

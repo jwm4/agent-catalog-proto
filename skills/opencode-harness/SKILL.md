@@ -1,3 +1,12 @@
+---
+name: opencode-harness
+description: >
+  OpenCode harness configuration guide. Base image setup, LLM providers
+  (Anthropic, OpenAI, Vertex AI, OpenRouter, custom/self-hosted), OpenCode
+  config file format, MCP servers, permissions, git credentials, persistence,
+  and RHOAI integration.
+---
+
 # OpenCode Harness
 
 ## Base Image and Standard Setup

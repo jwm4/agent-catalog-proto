@@ -1,6 +1,11 @@
-# Python Language Reference
+---
+name: python-packages
+description: >
+  Python language reference for container setup. Common Python packages by
+  use case: web frameworks, data science, ML/AI, testing, and linting tools.
+---
 
-<!-- TODO: Expand with detailed package lists and setup patterns -->
+# Python Language Reference
 
 ## Package Management
 

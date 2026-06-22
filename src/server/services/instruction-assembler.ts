@@ -1,6 +1,7 @@
 import { readFileSync } from 'fs';
 import { join } from 'path';
 import { getConfigSchema } from '../../shared/harness-configs/index.js';
+import { getHarnessById } from '../../shared/harnesses.js';
 import type { HarnessConfigSchema, HarnessConfigSection } from '../../shared/types.js';
 
 const RESOURCES_DIR = join(process.cwd(), 'src/server/resources');
@@ -81,18 +82,16 @@ function formatConfigSchema(schema: HarnessConfigSchema): string {
 export function assembleInstructions(harnessId: string): string {
   const systemPrompt = readResourceFile('core/system-prompt.md');
   const securityGuidance = readResourceFile('core/security-guidance.md');
-  const harnessResource = readResourceFile(`harnesses/${harnessId}.md`);
 
   const sections = [systemPrompt];
 
-  if (harnessResource) {
-    sections.push(harnessResource);
-  } else {
-    sections.push(
-      `# Harness: ${harnessId}\n\nNo specific harness documentation available. ` +
-      `Ask the user about their base image and requirements.`,
-    );
-  }
+  const harness = getHarnessById(harnessId);
+  const harnessName = harness?.name ?? harnessId;
+  sections.push(
+    `## Current Harness: ${harnessName}\n\n` +
+    `You are configuring a container for the **${harnessName}** harness. ` +
+    `Detailed harness setup guidance is available via the ${harnessId}-harness skill.`,
+  );
 
   const configSchema = getConfigSchema(harnessId);
   if (configSchema) {

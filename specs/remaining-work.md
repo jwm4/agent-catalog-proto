@@ -4,12 +4,38 @@
 **Context:** Phases 1-3 are complete. Phase 4 and 5 are partially done.
 This document describes remaining work and testing priorities.
 
-## Pre-requisite: End-to-End Testing
+## Priority 0: Convert instruction-assembler to Goose skills
 
-Before building new features, do a thorough end-to-end test of the existing
-workflow. Prior testing covered AI configuration and build/deploy separately,
-but not the full path where the AI conversation produces a complex
-configuration that is then built and deployed.
+Replace the monolithic system prompt (built by `instruction-assembler.ts`)
+with Goose skills that provide structured, progressive-disclosure guidance.
+Currently, `assembleInstructions()` reads resource files from disk and
+concatenates them into one large prompt sent as the first user message. With
+skills, the agent loads guidance on demand rather than front-loading everything
+into the context window.
+
+**Current architecture:**
+- `src/server/services/instruction-assembler.ts` concatenates:
+  `system-prompt.md` + harness doc + config schema + security guidance
+- Sent as one message via `sendInstructionsAndGetGreeting()` in `goose.ts`
+
+**Target architecture:**
+- Register resource files as Goose skills (prompt files the agent can invoke)
+- Keep only a minimal system prompt as the initial message
+- Harness-specific guidance, config schema, and security guidance become
+  skills the agent loads when relevant
+
+**Why first:** E2e testing (below) should validate the skills-based approach,
+not the monolithic prompt that will be replaced.
+
+**Files:** `src/server/services/instruction-assembler.ts`,
+`src/server/services/goose.ts`, `src/server/resources/`
+
+## Priority 1: End-to-End Testing
+
+Do a thorough end-to-end test of the existing workflow. Prior testing covered
+AI configuration and build/deploy separately, but not the full path where the
+AI conversation produces a complex configuration that is then built and
+deployed.
 
 ### Test scenarios to run
 
@@ -45,7 +71,7 @@ configuration that is then built and deployed.
 - Secret values are not logged or leaked in build output
 - Errors surface clearly in the UI, not silent failures
 
-## Priority 1: Typing indicator through full response
+## Priority 2: Typing indicator through full response
 
 The chat loading indicator (`isLoading`) currently clears on the first text
 chunk or tool call. It should persist until the SSE stream sends `[DONE]`,
@@ -54,7 +80,7 @@ so the user sees the AI is still working during multi-tool-call sequences.
 **Files:** `src/client/components/ChatPane.tsx`
 **Scope:** Small change, mainly adjusting when `isLoading` is set to `false`.
 
-## Priority 2: Error handling in AI conversation
+## Priority 3: Error handling in AI conversation
 
 The chat pane has minimal error handling. If goosed returns an error, times
 out, or the SSE stream drops, the user gets no feedback.
@@ -69,7 +95,7 @@ out, or the SSE stream drops, the user gets no feedback.
 **Files:** `src/client/components/ChatPane.tsx`, possibly
 `src/server/services/goose.ts`
 
-## Priority 3: Viewable file contents in Files tab
+## Priority 4: Viewable file contents in Files tab
 
 Clicking a file in the Files tab should expand or open a read-only view of
 its content. For inline files (e.g., generated config.json), the content is
@@ -79,7 +105,7 @@ fetches and returns the content on demand.
 **Files:** `src/client/components/spec-tabs/FilesTab.tsx`, possibly a new
 backend endpoint for non-inline files.
 
-## Priority 4: Dark mode and theme switching
+## Priority 5: Dark mode and theme switching
 
 Wire up the dark/light toggle in the masthead. Persist preference in
 localStorage. Verify all pages render correctly in both themes. PatternFly 6
@@ -88,14 +114,14 @@ supports this via token-based theming.
 **Files:** `src/client/components/AppLayout.tsx`, possibly a theme context
 provider.
 
-## Priority 5: On-cluster testing of other harnesses
+## Priority 6: On-cluster testing of other harnesses
 
 Build and deploy the OpenClaw and Codex harnesses on an actual cluster.
 OpenClaw exposes port 3000 (web UI) and uses SQLite (needs block storage).
 Codex requires an OpenAI API key. Verify the generated manifests, Service,
 and Route work correctly for harnesses with exposed ports.
 
-## Priority 6: Shipwright Build support
+## Priority 7: Shipwright Build support
 
 The build layer (`src/server/services/build-backend.ts`) has a
 `BuildBackend` interface so Shipwright can replace BuildConfig later. Add a
@@ -103,10 +129,3 @@ The build layer (`src/server/services/build-backend.ts`) has a
 instead of OpenShift BuildConfig. This is lower priority since BuildConfig
 works fine for the prototype.
 
-## Priority 7: Convert instruction-assembler to Goose skills
-
-The spec originally called for Goose skills for progressive-disclosure
-guidance. Currently the instruction-assembler builds a monolithic system
-prompt from resource files. Converting to skills would let the agent load
-guidance on demand rather than front-loading everything into the context
-window. This is an optimization, not a functional change.

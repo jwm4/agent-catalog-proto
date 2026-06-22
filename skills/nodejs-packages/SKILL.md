@@ -1,6 +1,11 @@
-# Node.js / TypeScript Language Reference
+---
+name: nodejs-packages
+description: >
+  Node.js and TypeScript language reference for container setup. Runtime
+  installation, build tools, testing frameworks, linters, and package managers.
+---
 
-<!-- TODO: Expand with detailed package lists and setup patterns -->
+# Node.js / TypeScript Language Reference
 
 ## Installation
 

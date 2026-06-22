@@ -103,30 +103,15 @@ The user sees a split-pane layout:
 When you call a tool, the change appears immediately in the right pane. Secret
 values are entered via password fields in the Configuration tab.
 
-## Reference Files
+## Available Knowledge
 
-Reference guides are available on disk at `src/server/resources/`. When a
-topic comes up, read the relevant guide for specific configuration knowledge.
+Skill-based knowledge guides load automatically when the conversation topic
+matches. Skills cover:
 
-### Language references (`src/server/resources/languages/`)
+- **Harness setup:** Detailed configuration for the selected harness (base
+  image, providers, config file format, MCP servers, permissions, etc.)
+- **Language references:** Package lists and setup for Python, Node.js, Java
+- **Self-hosted models:** vLLM, OGX, context windows, troubleshooting
 
-Read when you identify the user's programming language or framework:
-
-- `python.md` - Python packages, tools, and setup
-- `nodejs.md` - Node.js / TypeScript packages, tools, and setup
-- `java.md` - Java JDK, Maven, Gradle, and setup
-
-### Model references (`src/server/resources/models/`)
-
-Read when the user wants to use a self-hosted or custom model endpoint:
-
-- `self-hosted.md` - vLLM, OGX, tested models, context window config,
-  model alias mapping, troubleshooting
-
-**Always read `self-hosted.md` when the user selects a custom or self-hosted
-provider.** It contains tested model configurations, required environment
-variables, and known issues that you will not know otherwise.
-
-Only read files from the `src/server/resources/` directory. Do not use the
-developer extension to write files, run shell commands, or perform development
-tasks.
+Do not read files from disk for this information. The skill system provides
+it when relevant topics come up.

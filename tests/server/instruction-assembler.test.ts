@@ -7,15 +7,22 @@ describe('assembleInstructions', () => {
     expect(result.length).toBeGreaterThan(100);
   });
 
-  it('includes harness-specific content for opencode', () => {
+  it('includes harness context line for opencode', () => {
     const result = assembleInstructions('opencode');
-    expect(result.toLowerCase()).toContain('opencode');
+    expect(result).toContain('Current Harness: OpenCode');
+    expect(result).toContain('opencode-harness skill');
   });
 
-  it('uses fallback text for unknown harness', () => {
+  it('does not include full harness documentation', () => {
+    const result = assembleInstructions('opencode');
+    expect(result).not.toContain('LLM Provider Setup');
+    expect(result).not.toContain('MCP Server Configuration');
+  });
+
+  it('uses harness ID as name for unknown harness', () => {
     const result = assembleInstructions('nonexistent-harness');
-    expect(result).toContain('No specific harness documentation available');
-    expect(result).toContain('nonexistent-harness');
+    expect(result).toContain('Current Harness: nonexistent-harness');
+    expect(result).toContain('nonexistent-harness-harness skill');
   });
 
   it('includes config schema when available', () => {
@@ -42,5 +49,11 @@ describe('assembleInstructions', () => {
     const result = assembleInstructions('opencode');
     const dividerCount = (result.match(/\n\n---\n\n/g) || []).length;
     expect(dividerCount).toBeGreaterThanOrEqual(3);
+  });
+
+  it('mentions skill-based knowledge in system prompt', () => {
+    const result = assembleInstructions('opencode');
+    expect(result).toContain('Available Knowledge');
+    expect(result).toContain('skill');
   });
 });
