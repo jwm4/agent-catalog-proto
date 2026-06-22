@@ -3,6 +3,19 @@ import { promisify } from 'util';
 
 const execAsync = promisify(exec);
 
+function ocApplyStdin(json: string, namespace: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('oc', ['apply', '-f', '-', '-n', namespace]);
+    child.stdin.write(json);
+    child.stdin.end();
+    child.on('close', (code) => {
+      if (code === 0) resolve();
+      else reject(new Error(`oc apply exited with code ${code}`));
+    });
+    child.on('error', reject);
+  });
+}
+
 export interface BuildBackend {
   prepare(name: string, namespace: string): Promise<void>;
   startBuild(
@@ -52,13 +65,13 @@ export class BuildConfigBackend implements BuildBackend {
     });
 
     try {
-      await execAsync(`echo '${isJson}' | oc apply -f - -n ${namespace}`);
+      await ocApplyStdin(isJson, namespace);
     } catch {
       // ImageStream may already exist
     }
 
     try {
-      await execAsync(`echo '${bcJson}' | oc apply -f - -n ${namespace}`);
+      await ocApplyStdin(bcJson, namespace);
     } catch {
       // BuildConfig may already exist
     }

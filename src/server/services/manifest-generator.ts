@@ -60,17 +60,17 @@ export function generateManifests(
   }
 
   const envFrom: object[] = [];
-  const env = spec.envVars.map((e) => ({ name: e.name, value: e.value }));
+  const env: Array<
+    | { name: string; value: string }
+    | { name: string; valueFrom: { secretKeyRef: { name: string; key: string } } }
+  > = spec.envVars.map((e) => ({ name: e.name, value: e.value }));
 
   if (spec.secrets.length > 0) {
     for (const s of spec.secrets) {
       env.push({
         name: s.name,
-        value: undefined as unknown as string,
-        ...{
-          valueFrom: {
-            secretKeyRef: { name: `${name}-secrets`, key: s.name },
-          },
+        valueFrom: {
+          secretKeyRef: { name: `${name}-secrets`, key: s.name },
         },
       });
     }
