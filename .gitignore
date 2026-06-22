@@ -31,8 +31,8 @@ npm-debug.log*
 # AgentReady assessment output
 .agentready/
 
-# Goose skill symlinks (generated at startup from skills/)
-.agents/
+# Goose skill discovery (project root, not agent-workspace/)
+/.agents/
 
 # Goose binary (auto-downloaded)
 .bin/

@@ -3,7 +3,8 @@ import { existsSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import type { Response as ExpressResponse } from 'express';
 import { assembleInstructions } from './instruction-assembler.js';
-import { linkSkills } from './skill-linker.js';
+
+const AGENT_WORKSPACE = join(process.cwd(), 'agent-workspace');
 
 const BIN_DIR = join(process.cwd(), '.bin');
 const GOOSED_PORT = 3284;
@@ -118,8 +119,6 @@ export async function startGoosed(): Promise<{ port: number }> {
   if (goosedProcess) {
     return { port: GOOSED_PORT };
   }
-
-  linkSkills();
 
   const binary = await ensureGoose();
 
@@ -276,7 +275,7 @@ export async function startAgentSession(
       id: acpRequestId,
       method: 'session/new',
       params: {
-        cwd: process.cwd(),
+        cwd: AGENT_WORKSPACE,
         mcpServers: [mcpServer],
       },
     }),
