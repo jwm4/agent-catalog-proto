@@ -1,6 +1,25 @@
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { getConfigSchema } from '../../shared/harness-configs/index.js';
 import { getHarnessById } from '../../shared/harnesses.js';
 import type { HarnessConfigSchema, HarnessConfigSection } from '../../shared/types.js';
+
+const SKILL_DIR = join(
+  process.cwd(),
+  'agent-workspace/.agents/skills/container-customizer',
+);
+
+function readSkillBody(): string {
+  const skillPath = join(SKILL_DIR, 'SKILL.md');
+  try {
+    const raw = readFileSync(skillPath, 'utf-8');
+    const fmEnd = raw.indexOf('---', raw.indexOf('---') + 3);
+    if (fmEnd === -1) return raw;
+    return raw.slice(fmEnd + 3).trim();
+  } catch {
+    return '';
+  }
+}
 
 function formatSectionSummary(section: HarnessConfigSection): string {
   const lines: string[] = [];
@@ -67,16 +86,19 @@ function formatConfigSchema(schema: HarnessConfigSchema): string {
 }
 
 export function assembleInstructions(harnessId: string): string {
+  const skillBody = readSkillBody();
   const harness = getHarnessById(harnessId);
   const harnessName = harness?.name ?? harnessId;
 
   const sections: string[] = [];
 
+  if (skillBody) {
+    sections.push(skillBody);
+  }
+
   sections.push(
     `## Current Harness: ${harnessName}\n\n` +
-    `You are configuring a container for the **${harnessName}** harness. ` +
-    `Read the harness reference file (resources/opencode.md) from the ` +
-    `container-customizer skill for detailed setup guidance.`,
+    `You are configuring a container for the **${harnessName}** harness.`,
   );
 
   const configSchema = getConfigSchema(harnessId);
