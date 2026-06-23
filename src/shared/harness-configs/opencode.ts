@@ -12,7 +12,6 @@ export const opencodeConfigSchema: HarnessConfigSchema = {
         {
           id: 'anthropic',
           label: 'Anthropic (Claude)',
-          default: true,
           secrets: [
             {
               name: 'ANTHROPIC_API_KEY',
