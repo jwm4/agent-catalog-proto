@@ -176,8 +176,8 @@ function buildMcpServerSpec(
 ) {
   return {
     name: 'containerspec',
-    command: 'npx',
-    args: ['tsx', join(process.cwd(), 'src/mcp-server/index.ts')],
+    command: join(process.cwd(), 'node_modules/.bin/tsx'),
+    args: [join(process.cwd(), 'src/mcp-server/index.ts')],
     env: [
       { name: 'SESSION_ID', value: sessionId },
       { name: 'BACKEND_URL', value: backendUrl },
