@@ -1,10 +1,3 @@
----
-name: java-setup
-description: >
-  Java language reference for container setup. JDK versions, Maven and Gradle
-  installation, common frameworks, testing tools, and linters.
----
-
 # Java Language Reference
 
 ## Installation

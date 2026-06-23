@@ -1,19 +1,6 @@
-import { readFileSync } from 'fs';
-import { join } from 'path';
 import { getConfigSchema } from '../../shared/harness-configs/index.js';
 import { getHarnessById } from '../../shared/harnesses.js';
 import type { HarnessConfigSchema, HarnessConfigSection } from '../../shared/types.js';
-
-const RESOURCES_DIR = join(process.cwd(), 'src/server/resources');
-
-function readResourceFile(relativePath: string): string {
-  const fullPath = join(RESOURCES_DIR, relativePath);
-  try {
-    return readFileSync(fullPath, 'utf-8');
-  } catch {
-    return '';
-  }
-}
 
 function formatSectionSummary(section: HarnessConfigSection): string {
   const lines: string[] = [];
@@ -80,17 +67,16 @@ function formatConfigSchema(schema: HarnessConfigSchema): string {
 }
 
 export function assembleInstructions(harnessId: string): string {
-  const systemPrompt = readResourceFile('core/system-prompt.md');
-  const securityGuidance = readResourceFile('core/security-guidance.md');
-
-  const sections = [systemPrompt];
-
   const harness = getHarnessById(harnessId);
   const harnessName = harness?.name ?? harnessId;
+
+  const sections: string[] = [];
+
   sections.push(
     `## Current Harness: ${harnessName}\n\n` +
     `You are configuring a container for the **${harnessName}** harness. ` +
-    `Detailed harness setup guidance is available via the ${harnessId}-harness skill.`,
+    `Read the harness reference file (resources/opencode.md) from the ` +
+    `container-customizer skill for detailed setup guidance.`,
   );
 
   const configSchema = getConfigSchema(harnessId);
@@ -98,10 +84,7 @@ export function assembleInstructions(harnessId: string): string {
     sections.push(formatConfigSchema(configSchema));
   }
 
-  sections.push(securityGuidance);
-
   sections.push(
-    '---\n\n' +
     'Begin the conversation. Greet the user and ask about their project ' +
     'and what they want their agent to be able to do.',
   );

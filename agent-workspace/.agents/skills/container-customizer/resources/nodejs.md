@@ -1,10 +1,3 @@
----
-name: nodejs-packages
-description: >
-  Node.js and TypeScript language reference for container setup. Runtime
-  installation, build tools, testing frameworks, linters, and package managers.
----
-
 # Node.js / TypeScript Language Reference
 
 ## Installation

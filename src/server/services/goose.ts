@@ -123,6 +123,7 @@ export async function startGoosed(): Promise<{ port: number }> {
   const binary = await ensureGoose();
 
   const proc = spawn(binary, ['serve', '--port', String(GOOSED_PORT)], {
+    cwd: AGENT_WORKSPACE,
     env: { ...process.env },
     stdio: ['pipe', 'pipe', 'pipe'],
   });

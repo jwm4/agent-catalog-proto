@@ -1,28 +1,15 @@
 import { assembleInstructions } from '@server/services/instruction-assembler.js';
 
 describe('assembleInstructions', () => {
-  it('includes system prompt content for a known harness', () => {
-    const result = assembleInstructions('opencode');
-    expect(result).toContain('---');
-    expect(result.length).toBeGreaterThan(100);
-  });
-
-  it('includes harness context line for opencode', () => {
+  it('includes harness context for opencode', () => {
     const result = assembleInstructions('opencode');
     expect(result).toContain('Current Harness: OpenCode');
-    expect(result).toContain('opencode-harness skill');
-  });
-
-  it('does not include full harness documentation', () => {
-    const result = assembleInstructions('opencode');
-    expect(result).not.toContain('LLM Provider Setup');
-    expect(result).not.toContain('MCP Server Configuration');
+    expect(result).toContain('container-customizer skill');
   });
 
   it('uses harness ID as name for unknown harness', () => {
     const result = assembleInstructions('nonexistent-harness');
     expect(result).toContain('Current Harness: nonexistent-harness');
-    expect(result).toContain('nonexistent-harness-harness skill');
   });
 
   it('includes config schema when available', () => {
@@ -40,20 +27,20 @@ describe('assembleInstructions', () => {
     expect(result).toContain('Begin the conversation');
   });
 
-  it('includes security guidance', () => {
+  it('does not include full system prompt or security guidance', () => {
     const result = assembleInstructions('opencode');
-    expect(result.toLowerCase()).toContain('secret');
+    expect(result).not.toContain('Container Customization Assistant');
+    expect(result).not.toContain('Container Security Posture');
   });
 
   it('separates sections with dividers', () => {
     const result = assembleInstructions('opencode');
     const dividerCount = (result.match(/\n\n---\n\n/g) || []).length;
-    expect(dividerCount).toBeGreaterThanOrEqual(3);
+    expect(dividerCount).toBeGreaterThanOrEqual(1);
   });
 
-  it('mentions skill-based knowledge in system prompt', () => {
+  it('references the harness resource file', () => {
     const result = assembleInstructions('opencode');
-    expect(result).toContain('Available Knowledge');
-    expect(result).toContain('skill');
+    expect(result).toContain('resources/opencode.md');
   });
 });
