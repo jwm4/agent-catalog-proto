@@ -1,34 +1,32 @@
 # Remaining Work
 
-**Date:** 2026-06-22
-**Context:** Phases 1-3 are complete. Phase 4 and 5 are partially done.
-This document describes remaining work and testing priorities.
+**Date:** 2026-06-23
+**Context:** Phases 1-3 are complete. Phase 4 is mostly done (skill structure
+in place, behavioral guidance written, but delivered as a workaround). Phase 5
+is partially done. Phase 6 is not started.
 
-## Priority 0: Convert instruction-assembler to Goose skills
+## Priority 0: Native Goose skill delivery in ACP mode
 
-Replace the monolithic system prompt (built by `instruction-assembler.ts`)
-with Goose skills that provide structured, progressive-disclosure guidance.
-Currently, `assembleInstructions()` reads resource files from disk and
-concatenates them into one large prompt sent as the first user message. With
-skills, the agent loads guidance on demand rather than front-loading everything
-into the context window.
+The container-customizer skill exists at
+`agent-workspace/.agents/skills/container-customizer/SKILL.md` with five
+resource files. However, Goose's ACP mode does not deliver SKILL.md body
+content to the agent (the Summon extension is not fully implemented for
+`goosed serve`). As a workaround, `instruction-assembler.ts` reads the
+SKILL.md body and sends it as the first user message.
 
-**Current architecture:**
-- `src/server/services/instruction-assembler.ts` concatenates:
-  `system-prompt.md` + harness doc + config schema + security guidance
-- Sent as one message via `sendInstructionsAndGetGreeting()` in `goose.ts`
+This works but likely underperforms native skill loading because:
+- The guidance arrives as a user message rather than a system-level skill
+- The model may treat user-message instructions with less authority
+- No structured skill invocation (the agent reads resource files via `cat`)
 
-**Target architecture:**
-- Register resource files as Goose skills (prompt files the agent can invoke)
-- Keep only a minimal system prompt as the initial message
-- Harness-specific guidance, config schema, and security guidance become
-  skills the agent loads when relevant
+**Upstream issues:** goose#6642, goose#7309, goose#7697
 
-**Why first:** E2e testing (below) should validate the skills-based approach,
-not the monolithic prompt that will be replaced.
+**When to revisit:** When Goose ships ACP skill content delivery, remove the
+`readSkillBody()` workaround in `instruction-assembler.ts` and let the skill
+system handle it natively.
 
 **Files:** `src/server/services/instruction-assembler.ts`,
-`src/server/services/goose.ts`, `src/server/resources/`
+`agent-workspace/.agents/skills/container-customizer/`
 
 ## Priority 1: End-to-End Testing
 
@@ -128,4 +126,46 @@ The build layer (`src/server/services/build-backend.ts`) has a
 `ShipwrightBackend` implementation that uses Shipwright Build/BuildRun CRDs
 instead of OpenShift BuildConfig. This is lower priority since BuildConfig
 works fine for the prototype.
+
+## Priority 8: Agent behavioral quality
+
+The agent does not consistently follow the SKILL.md behavioral guidance.
+Observed issues during testing (2026-06-23):
+
+- **Dumps checklists** instead of asking one question at a time
+- **Installs packages without asking**, violating "Recommend, then act"
+- **Duplicate tool calls** (e.g., installing Gradle twice, which caused a
+  build failure). A code-level dedup guard was added to `tools.ts`, but the
+  agent should not be making duplicate calls in the first place.
+- **Anthropic shown as "default" provider** when asking about LLM providers.
+  OpenCode has no real default. The config schema (`opencode.ts`) marks
+  Anthropic with `default: true`, which leaks into the prompt.
+
+This may partly be a consequence of Priority 0 (guidance delivered as a user
+message rather than a native skill). Revisit after native skill delivery is
+available. If the issues persist, consider whether the guidance needs to be
+shorter and more direct, or whether the model needs explicit few-shot examples.
+
+**Files:** `agent-workspace/.agents/skills/container-customizer/SKILL.md`,
+`src/shared/harness-configs/opencode.ts` (remove `default: true`)
+
+## Priority 9: MLflow auto-discovery and web UI link
+
+Two MLflow UX improvements identified during testing:
+
+**Auto-discover tracking URI:** Instead of asking the user to paste the MLflow
+URL, detect it automatically. If the user is logged into OpenShift, run
+`oc get svc mlflow -n redhat-ods-applications` to construct the tracking URI.
+If they are not logged in, provide the oc commands as instructions. The
+opencode.md resource file already documents this, but the skill does not
+attempt auto-discovery during the conversation.
+
+**Web UI link post-deploy:** After deployment, show a link to the MLflow web
+UI in the deployment status panel. The correct URL comes from the ConsoleLink,
+not the direct route:
+`oc get consolelink mlflow -o jsonpath='{.spec.href}'`. The gateway URL
+handles OAuth; the direct route does not handle browser auth.
+
+**Files:** `agent-workspace/.agents/skills/container-customizer/resources/opencode.md`,
+`src/client/components/BuildDeployPanel.tsx` (for the post-deploy link)
 
