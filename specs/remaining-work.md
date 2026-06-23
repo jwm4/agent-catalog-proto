@@ -169,3 +169,19 @@ handles OAuth; the direct route does not handle browser auth.
 **Files:** `agent-workspace/.agents/skills/container-customizer/resources/opencode.md`,
 `src/client/components/BuildDeployPanel.tsx` (for the post-deploy link)
 
+## Priority 10: Document attachment in chat
+
+The PatternFly Chatbot MessageBar includes a built-in attach button. It is
+currently hidden (`hasAttachButton={false}`) because no upload handling is
+implemented. Adding support would let users attach files (e.g., a
+requirements.txt, existing Dockerfile, or project config) for the agent to
+reference during the conversation.
+
+Implementation would need:
+- An `onAttach` handler in ChatPane.tsx
+- A backend endpoint to receive the file and make it available to the Goose
+  session (likely via the MCP server or a temporary file in agent-workspace)
+- Passing the file content or path to the agent as part of the next message
+
+**Files:** `src/client/components/ChatPane.tsx`, `src/server/routes/session.ts`
+

@@ -310,6 +310,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                 ? 'Ask the agent to customize your container...'
                 : 'Initializing agent...'
             }
+            hasAttachButton={false}
             hasStopButton={isStreaming}
             handleStopButton={handleStop}
             isThinking={isStreaming}
