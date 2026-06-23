@@ -55,6 +55,9 @@ export function applyAddPackage(
       cmd = `${manager} install ${pkgList}`;
   }
 
+  if (spec.runCommands.includes(cmd)) {
+    return spec;
+  }
   return { ...spec, runCommands: [...spec.runCommands, cmd] };
 }
 
@@ -62,6 +65,9 @@ export function applyAddRunCommand(
   spec: ContainerSpec,
   command: string,
 ): ContainerSpec {
+  if (spec.runCommands.includes(command)) {
+    return spec;
+  }
   return { ...spec, runCommands: [...spec.runCommands, command] };
 }
 
