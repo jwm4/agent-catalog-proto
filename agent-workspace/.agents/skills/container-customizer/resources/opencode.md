@@ -285,8 +285,19 @@ for observability and debugging.
 - `setEnvVar("MLFLOW_EXPERIMENT_NAME", "opencode-traces")`
 - `setEnvVar("MLFLOW_TRACKING_AUTH", "kubernetes-namespaced")`
 
-The pod's service account needs `edit` role in its namespace for
-Kubernetes-namespaced auth.
+**Auto-discovering the tracking URI:** If the user is logged into OpenShift,
+suggest they run `oc get svc mlflow -n redhat-ods-applications` to find the
+MLflow service. The tracking URI is typically
+`https://mlflow.redhat-ods-applications.svc:8443/mlflow`. If they are not
+logged in, provide these instructions so they can fill in the value later.
+
+**RBAC setup:** The pod's service account needs the
+`mlflow-operator-mlflow-integration` ClusterRole (shipped with RHOAI 3.4+ via
+the MLflow operator). This role grants access scoped to `mlflow.kubeflow.org`
+and `mlflow.opendatahub.io` API groups only, with no access to core Kubernetes
+resources. Create a dedicated ServiceAccount and bind it via a
+namespace-scoped RoleBinding. Do not recommend the `edit` ClusterRole, which
+is overly permissive for this purpose.
 
 ### Model Serving with vLLM
 
