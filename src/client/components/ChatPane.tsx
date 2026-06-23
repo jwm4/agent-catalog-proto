@@ -47,6 +47,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
     async function pollWelcome() {
       const POLL_INTERVAL = 1000;
       const MAX_ATTEMPTS = 30;
+      let networkErrors = 0;
 
       for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
         if (cancelled) return;
@@ -70,15 +71,19 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
           }
         } catch {
           if (cancelled) return;
+          networkErrors++;
         }
         await new Promise((r) => setTimeout(r, POLL_INTERVAL));
       }
 
       if (!cancelled) {
+        const message = networkErrors >= MAX_ATTEMPTS
+          ? 'Unable to connect to the agent. Check that the server is running.'
+          : FALLBACK_GREETING;
         setMessages((prev) =>
           prev.map((m) =>
             m.id === 'welcome'
-              ? { ...m, content: FALLBACK_GREETING, isLoading: false }
+              ? { ...m, content: message, isLoading: false }
               : m,
           ),
         );
@@ -213,6 +218,20 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                 // non-JSON SSE data, skip
               }
             }
+          }
+
+          const finalContent = accumulators.size > 0
+            ? Array.from(accumulators.values()).join('')
+            : '';
+          if (!finalContent.trim()) {
+            const currentBotId = activeBotId;
+            setMessages((prev) =>
+              prev.map((m) =>
+                m.id === currentBotId
+                  ? { ...m, content: "The agent didn't respond. Try sending your message again." }
+                  : m,
+              ),
+            );
           }
         } else {
           const jsonData = (await response.json()) as { content?: string };
