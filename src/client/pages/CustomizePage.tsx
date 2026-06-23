@@ -86,7 +86,7 @@ export function CustomizePage() {
   useEffect(() => {
     if (!id) return;
 
-    let cancelled = false;
+    const controller = new AbortController();
 
     async function startSession() {
       try {
@@ -94,18 +94,22 @@ export function CustomizePage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ harnessId: id }),
+          signal: controller.signal,
         });
         if (!res.ok) throw new Error(`Failed to create session: ${res.status}`);
         const data = (await res.json()) as { sessionId: string };
-        if (cancelled) return;
+        if (controller.signal.aborted) return;
         setSessionId(data.sessionId);
 
-        const specRes = await fetch(`/api/session/${data.sessionId}/spec`);
+        const specRes = await fetch(`/api/session/${data.sessionId}/spec`, {
+          signal: controller.signal,
+        });
         if (specRes.ok) {
           const specData = (await specRes.json()) as ContainerSpec;
-          if (!cancelled) setSpec(specData);
+          if (!controller.signal.aborted) setSpec(specData);
         }
       } catch (err) {
+        if (err instanceof DOMException && err.name === 'AbortError') return;
         console.error('Failed to start session:', err);
       }
     }
@@ -113,7 +117,7 @@ export function CustomizePage() {
     startSession();
 
     return () => {
-      cancelled = true;
+      controller.abort();
     };
   }, [id]);
 
