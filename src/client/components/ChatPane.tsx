@@ -165,7 +165,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                   setMessages((prevMsgs) =>
                     prevMsgs.map((m) =>
                       m.id === currentBotId
-                        ? { ...m, content: m.content + toolText, isLoading: false }
+                        ? { ...m, content: m.content + toolText }
                         : m,
                     ),
                   );
@@ -185,14 +185,12 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                   activeBotId = newBotId;
                   accumulators.set(gooseMessageId, contentText);
                   setMessages((prev) => [
-                    ...prev.map((m) =>
-                      m.isLoading ? { ...m, isLoading: false } : m,
-                    ),
+                    ...prev,
                     {
                       id: newBotId,
                       role: 'bot',
                       content: contentText,
-                      isLoading: false,
+                      isLoading: true,
                     },
                   ]);
                 } else {
@@ -204,7 +202,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
                   setMessages((prevMsgs) =>
                     prevMsgs.map((m) =>
                       m.id === currentBotId
-                        ? { ...m, content: updated, isLoading: false }
+                        ? { ...m, content: updated }
                         : m,
                     ),
                   );
