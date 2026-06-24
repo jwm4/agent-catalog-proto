@@ -185,3 +185,23 @@ Implementation would need:
 
 **Files:** `src/client/components/ChatPane.tsx`, `src/server/routes/session.ts`
 
+## Priority 11: Web search for the agent
+
+The agent currently has no web search capability. It relies on its training
+data and the resource files for all knowledge. This is usually sufficient, but
+falls short when:
+
+- The user wants to work with an obscure technology stack and the agent needs
+  to look up the right packages and dependencies to install
+- The user asks about GPU requirements, model compatibility, or other
+  hardware-specific details that change frequently
+- The user references a tool or framework the model has limited training data
+  about
+
+Add a web search MCP server (e.g., Brave Search, Tavily) as an additional MCP
+server registered alongside containerspec in the ACP session. This requires an
+API key for the search provider, so it should be optional and configurable.
+
+**Files:** `src/server/services/goose.ts` (register additional MCP server),
+possibly a search API key in server config
+
