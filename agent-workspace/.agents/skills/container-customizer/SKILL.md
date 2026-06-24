@@ -70,7 +70,8 @@ Walk through these topics one at a time:
    the user agrees.
 3. **LLM provider:** Which provider? Options include cloud API providers
    (Anthropic, OpenAI, OpenRouter, Vertex AI) and self-hosted models (vLLM,
-   OGX on OpenShift AI). Register the secret and set up config immediately.
+   OGX, or any OpenAI-compatible endpoint). Register the secret and set up
+   config immediately.
 4. **Git access:** Do they need push/PR access? If yes, register the PAT
    secret and set git config.
 5. **Review:** Summarize the final configuration, discuss security posture,
