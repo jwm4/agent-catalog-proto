@@ -7,15 +7,15 @@ model (vLLM, OGX, or any OpenAI-compatible endpoint) instead of a cloud API.
 
 These models have been validated with agentic coding workloads:
 
-| Model | Size | Context | GPU Requirements | Notes |
-|-------|------|---------|-----------------|-------|
-| openai/gpt-oss-120b | 120B | 131K | 4x GPU (e.g., A100) | Well-tested, strong tool use |
-| RedHatAI/Qwen3.6-35B-A3B-NVFP4 | 35B (quantized) | 131K | 1x GPU | Good balance of quality and resources |
-| Qwen/Qwen3-235B-A22B | 235B (MoE) | 131K | Multi-GPU | Large capacity |
-| ibm-granite/granite-4.1-8b-instruct | 8B | 524K | 1x GPU | Extended context, smaller model |
-| meta-llama/Llama-4-Maverick-17B-128E | 17B (MoE) | 1M+ | Multi-GPU | Massive context window |
-| openai/gpt-oss-20b | 20B | up to 128K | 1x L4 (23GB VRAM) | Fits on smaller GPUs |
-| meta-llama/Llama-3.1-8B-Instruct | 8B | 128K | 1x GPU | Small, fast, good for testing |
+| Model | Size | Context | Notes |
+|-------|------|---------|-------|
+| openai/gpt-oss-120b | 120B | 131K | Well-tested, strong tool use |
+| RedHatAI/Qwen3.6-35B-A3B-NVFP4 | 35B (quantized) | 131K | Good balance of quality and resources |
+| Qwen/Qwen3-235B-A22B | 235B (MoE) | 131K | Large capacity |
+| ibm-granite/granite-4.1-8b-instruct | 8B | 524K | Extended context, smaller model |
+| meta-llama/Llama-4-Maverick-17B-128E | 17B (MoE) | 1M+ | Massive context window |
+| openai/gpt-oss-20b | 20B | up to 128K | Fits on smaller GPUs |
+| meta-llama/Llama-3.1-8B-Instruct | 8B | 128K | Small, fast, good for testing |
 
 ## Quality Warning
 
@@ -140,15 +140,13 @@ user does not have an OGX endpoint, recommend connecting directly to vLLM.
 
 When the user is unsure which model to use, ask about:
 
-1. **GPU resources available** (number and type of GPUs)
-2. **Quality vs speed tradeoff** (larger models are better but slower)
-3. **Context window needs** (large codebases need more context)
+1. **Quality vs speed tradeoff** (larger models are better but slower)
+2. **Context window needs** (large codebases need more context)
+3. **What models are already deployed** on their cluster
 
-**Recommendations:**
-- **Limited GPUs (1x consumer/L4):** 8B or 20B models
-- **Moderate GPUs (1-2x A100):** 35B quantized models (e.g., Qwen3.6-35B)
-- **Strong GPUs (4x A100+):** 120B+ models for best quality
-- **Priority is quality:** Recommend Anthropic API instead of self-hosted
+If quality is the top priority, recommend a cloud API provider (Anthropic,
+OpenAI) instead of self-hosted. For self-hosted, larger models generally
+produce better agentic coding results.
 
 ## Common Issues
 
