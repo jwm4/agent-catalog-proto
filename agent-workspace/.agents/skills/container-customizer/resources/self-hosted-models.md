@@ -14,7 +14,7 @@ These models have been validated with agentic coding workloads:
 | Qwen/Qwen3-235B-A22B | 235B (MoE) | 131K | Multi-GPU | Large capacity |
 | ibm-granite/granite-4.1-8b-instruct | 8B | 524K | 1x GPU | Extended context, smaller model |
 | meta-llama/Llama-4-Maverick-17B-128E | 17B (MoE) | 1M+ | Multi-GPU | Massive context window |
-| openai/gpt-oss-20b | 20B | varies | 1x L4 (23GB VRAM) | Fits on smaller GPUs |
+| openai/gpt-oss-20b | 20B | up to 128K | 1x L4 (23GB VRAM) | Fits on smaller GPUs; context depends on GPU memory and vLLM config |
 | meta-llama/Llama-3.1-8B-Instruct | 8B | 128K | 1x GPU | Small, fast, good for testing |
 
 ## Quality Warning
@@ -27,12 +27,19 @@ tests and catch its own mistakes.
 
 ## Context Window Configuration
 
-The agent's system prompt alone uses approximately 23K tokens. Add conversation
-history, file contents, and tool results, and real sessions easily exceed 100K
-tokens.
+**Always ask the user what context window their model is configured with.**
+The context window depends on how vLLM is launched (the `--max-model-len`
+flag), not just the model's theoretical maximum. Do not assume a value.
 
-**Minimum:** 32K context (bare minimum, very frequent autocompaction)
-**Recommended:** 128K+ for realistic multi-turn coding work
+**Why this matters:** The system prompt alone uses ~23K tokens. A 32K context
+leaves almost no room for conversation, file contents, or tool results. The
+agent will autocompact constantly and lose track of context. 32K is a last
+resort, not a reasonable default.
+
+**Recommend 128K** as the target. If the user's setup supports it, use 128K
+settings. If they are constrained to 32K, warn them that the agent will
+struggle with multi-turn coding tasks and suggest they consider a larger
+context window or a cloud API provider instead.
 
 ### Configuration (Claude Code harness)
 
