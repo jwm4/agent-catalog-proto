@@ -71,6 +71,8 @@ export function CustomizePage() {
   const [namespace, setNamespace] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
   const buildAbortRef = useRef<AbortController | null>(null);
+  const chatSendRef = useRef<((msg: string) => void) | null>(null);
+  const buildFailureHandledRef = useRef<string | null>(null);
 
   useEffect(() => {
     fetch('/api/namespace/default')
@@ -155,6 +157,42 @@ export function CustomizePage() {
     };
   }, [sessionId]);
 
+  useEffect(() => {
+    if (
+      buildState.stage !== 'error' ||
+      !buildState.error ||
+      !chatSendRef.current
+    )
+      return;
+
+    const errorKey = buildState.error;
+    if (buildFailureHandledRef.current === errorKey) return;
+    buildFailureHandledRef.current = errorKey;
+
+    const TAIL_SIZE = 50;
+    const tailLines = buildState.logLines.slice(-TAIL_SIZE);
+    const truncationNote =
+      buildState.logLines.length > TAIL_SIZE
+        ? `(showing last ${TAIL_SIZE} of ${buildState.logLines.length} lines)\n`
+        : '';
+
+    const failureMessage = [
+      'The container build just failed.',
+      '',
+      `Error: ${buildState.error}`,
+      '',
+      `Build log tail ${truncationNote}:`,
+      '```',
+      ...tailLines,
+      '```',
+      '',
+      'Use the getBuildLogs tool if you need more context.',
+      'Analyze the error and suggest fixes to the container specification.',
+    ].join('\n');
+
+    chatSendRef.current(failureMessage);
+  }, [buildState.stage, buildState.error, buildState.logLines]);
+
   function startBuildAndDeploy() {
     if (!sessionId) return;
 
@@ -165,6 +203,7 @@ export function CustomizePage() {
 
     setBuildState(initialBuildState);
     setShowBuildPanel(true);
+    buildFailureHandledRef.current = null;
 
     (async () => {
       try {
@@ -355,7 +394,13 @@ export function CustomizePage() {
               }}
             >
               <div style={{ position: 'absolute', inset: 0 }}>
-                <ChatPane sessionId={sessionId} harnessName={harness.name} />
+                <ChatPane
+                  sessionId={sessionId}
+                  harnessName={harness.name}
+                  onSendReady={(fn) => {
+                    chatSendRef.current = fn;
+                  }}
+                />
               </div>
             </CardBody>
           </Card>

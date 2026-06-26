@@ -268,6 +268,55 @@ server.tool(
   },
 );
 
+server.tool(
+  'getBuildLogs',
+  'Fetch build logs for the current session. Use this to diagnose build failures. Returns the build phase, error message (if any), total log line count, and the requested tail of log lines.',
+  {
+    tail: z
+      .number()
+      .optional()
+      .describe(
+        'Number of log lines to return from the end. Defaults to 100.',
+      ),
+  },
+  async ({ tail }) => {
+    const n = tail ?? 100;
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/session/${SESSION_ID}/build-logs?tail=${n}`,
+      );
+      if (!res.ok) {
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: `Failed to fetch build logs: ${res.status}`,
+            },
+          ],
+          isError: true,
+        };
+      }
+      const data = await res.json();
+      return {
+        content: [
+          { type: 'text' as const, text: JSON.stringify(data, null, 2) },
+        ],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [
+          {
+            type: 'text' as const,
+            text: `Error fetching build logs: ${msg}`,
+          },
+        ],
+        isError: true,
+      };
+    }
+  },
+);
+
 async function main() {
   await fetchInitialSpec();
   const transport = new StdioServerTransport();
