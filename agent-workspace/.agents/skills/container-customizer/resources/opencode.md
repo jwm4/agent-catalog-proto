@@ -259,8 +259,9 @@ If the user needs the agent to push code or create PRs:
 - `setEnvVar("GIT_USER_EMAIL", "<email>")` (ask the user what email to use)
 
 Ask the user for their preferred git user name and email before setting these.
-Recommend scoping the PAT to specific repositories and using the minimum
-required permissions.
+Do not suggest or offer generic defaults. Wait for the user to provide their
+actual name and email. Recommend scoping the PAT to specific repositories and
+using the minimum required permissions.
 
 ## Persistence
 
