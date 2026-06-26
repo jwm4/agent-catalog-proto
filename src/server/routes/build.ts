@@ -75,6 +75,7 @@ router.post('/api/build', async (req, res) => {
   }
 
   let contextDir: string | undefined;
+  const logLines: string[] = [];
 
   try {
     updateBuildStatus(sessionId, {
@@ -99,7 +100,6 @@ router.post('/api/build', async (req, res) => {
     });
     sendEvent({ type: 'status', phase: 'running' });
 
-    const logLines: string[] = [];
     for await (const line of buildBackend.startBuild(name, namespace, contextDir)) {
       logLines.push(line);
       sendEvent({ type: 'log', line });
@@ -120,7 +120,7 @@ router.post('/api/build', async (req, res) => {
     updateBuildStatus(sessionId, {
       buildName: name,
       phase: 'failed',
-      logLines: [],
+      logLines,
       error: message,
     });
     sendEvent({ type: 'status', phase: 'failed', error: message });

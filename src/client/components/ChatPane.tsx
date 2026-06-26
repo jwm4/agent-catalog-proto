@@ -17,13 +17,14 @@ interface ChatMessage {
 interface ChatPaneProps {
   sessionId: string | null;
   harnessName?: string;
+  onSendReady?: (sendFn: (msg: string) => void) => void;
 }
 
 const FALLBACK_GREETING =
   "Hello! I can help you customize your container image. " +
   "What kind of project will your agent be working on?";
 
-export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps) {
+export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady }: ChatPaneProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'bot', content: '', isLoading: true },
   ]);
@@ -279,6 +280,14 @@ export function ChatPane({ sessionId, harnessName: _harnessName }: ChatPaneProps
     },
     [sessionId, isStreaming],
   );
+
+  useEffect(() => {
+    if (isReady && onSendReady) {
+      onSendReady((msg: string) => {
+        handleSend(msg);
+      });
+    }
+  }, [isReady, onSendReady, handleSend]);
 
   const handleStop = useCallback(() => {
     abortRef.current?.abort();

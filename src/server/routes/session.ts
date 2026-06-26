@@ -7,6 +7,7 @@ import {
   updateSpec,
   setWelcomeMessage,
   getWelcomeMessage,
+  getBuildStatus,
 } from '../services/session-manager.js';
 import {
   isGoosedRunning,
@@ -135,6 +136,33 @@ router.post('/api/session/:id/spec', async (req, res) => {
   const spec = req.body;
   updateSpec(req.params.id, spec);
   res.json({ ok: true });
+});
+
+router.get('/api/session/:id/build-logs', async (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  const buildStatus = getBuildStatus(req.params.id);
+  if (!buildStatus) {
+    res.json({ logLines: [], phase: null, error: null, totalLines: 0 });
+    return;
+  }
+
+  const tail = parseInt(req.query.tail as string, 10);
+  const lines =
+    !isNaN(tail) && tail > 0
+      ? buildStatus.logLines.slice(-tail)
+      : buildStatus.logLines;
+
+  res.json({
+    phase: buildStatus.phase,
+    error: buildStatus.error || null,
+    totalLines: buildStatus.logLines.length,
+    logLines: lines,
+  });
 });
 
 export default router;
