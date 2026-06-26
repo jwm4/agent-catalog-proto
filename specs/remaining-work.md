@@ -1,6 +1,6 @@
 # Remaining Work
 
-**Date:** 2026-06-24
+**Date:** 2026-06-26
 **Context:** Phases 1-3 are complete. Phase 4 is mostly done (skill structure
 in place, behavioral guidance written, but delivered as a workaround). Phase 5
 is partially done. Phase 6 is not started.
@@ -75,6 +75,7 @@ deployed.
 
 - Containerfile matches the spec viewer's Containerfile tab
 - Build logs stream in real time (no stuck "Starting build...")
+- Build failures inject log context into the Goose conversation
 - Deploy completes within the timeout (120s)
 - Connect command works and the agent tool is available
 - Secret values are not logged or leaked in build output
@@ -108,6 +109,23 @@ with "InvalidOutputReference: Output image could not be resolved." Fix: added
 `await`, removed silent error swallowing from `build-backend.ts` (oc apply is
 idempotent), and added stderr capture to `ocApplyStdin` for better error
 messages.
+
+## ~~Priority 4.6: Volume mount file shadowing~~ DONE
+
+Resolved 2026-06-25. Files COPYed into the image under a volume mount path
+(e.g., `/workspace/.opencode/config.json`) were hidden at runtime when the
+PersistentVolume was mounted over the image layer. Fix: detect volume-shadowed
+files during Containerfile generation, stage them to `/opt/agent-init/files/`,
+and generate an init script that copies them into the volume on first start
+with `cp -n` (no-clobber preserves user modifications).
+
+## ~~Priority 4.7: Build log feedback to Goose~~ DONE
+
+Resolved 2026-06-26. When a build fails, the client auto-injects the error
+and a truncated tail of build logs into the Goose conversation. The agent
+analyzes the failure and suggests spec fixes. A `getBuildLogs` MCP tool lets
+the agent fetch more log lines on demand. Also fixed a bug where build logs
+were discarded on failure (`logLines: []` in the catch block).
 
 ## Priority 5: Dark mode and theme switching
 
