@@ -6,11 +6,15 @@ const execAsync = promisify(exec);
 function ocApplyStdin(json: string, namespace: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const child = spawn('oc', ['apply', '-f', '-', '-n', namespace]);
+    let stderr = '';
     child.stdin.write(json);
     child.stdin.end();
+    child.stderr.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString();
+    });
     child.on('close', (code) => {
       if (code === 0) resolve();
-      else reject(new Error(`oc apply exited with code ${code}`));
+      else reject(new Error(stderr.trim() || `oc apply exited with code ${code}`));
     });
     child.on('error', reject);
   });
@@ -23,6 +27,7 @@ export interface BuildBackend {
     namespace: string,
     contextDir: string,
   ): AsyncGenerator<string, void, unknown>;
+  verifyBuild(name: string, namespace: string): Promise<void>;
   getImageRef(name: string, namespace: string): Promise<string>;
   cleanup(name: string, namespace: string): Promise<void>;
 }
@@ -64,17 +69,8 @@ export class BuildConfigBackend implements BuildBackend {
       },
     });
 
-    try {
-      await ocApplyStdin(isJson, namespace);
-    } catch {
-      // ImageStream may already exist
-    }
-
-    try {
-      await ocApplyStdin(bcJson, namespace);
-    } catch {
-      // BuildConfig may already exist
-    }
+    await ocApplyStdin(isJson, namespace);
+    await ocApplyStdin(bcJson, namespace);
   }
 
   async *startBuild(
@@ -133,6 +129,36 @@ export class BuildConfigBackend implements BuildBackend {
         break;
       }
     }
+  }
+
+  async verifyBuild(name: string, namespace: string): Promise<void> {
+    const maxAttempts = 6;
+    const delayMs = 2000;
+    let phase = '';
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      phase = await oc([
+        'get', 'builds',
+        '-l', `buildconfig=${name}`,
+        '-n', namespace,
+        '--sort-by=.metadata.creationTimestamp',
+        '-o', "jsonpath={.items[-1:].status.phase}",
+      ]);
+      if (phase === 'Complete') return;
+      if (phase === 'Failed' || phase === 'Error' || phase === 'Cancelled') break;
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+
+    const message = await oc([
+      'get', 'builds',
+      '-l', `buildconfig=${name}`,
+      '-n', namespace,
+      '--sort-by=.metadata.creationTimestamp',
+      '-o', "jsonpath={.items[-1:].status.message}",
+    ]).catch(() => '');
+    throw new Error(
+      `Build failed (phase: ${phase})${message ? `. ${message}` : ''}`,
+    );
   }
 
   async getImageRef(name: string, namespace: string): Promise<string> {
