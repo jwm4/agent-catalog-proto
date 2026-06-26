@@ -13,12 +13,11 @@
     "isolatedModules": true,
     "noEmit": true,
     "jsx": "react-jsx",
-    "baseUrl": ".",
     "paths": {
-      "@client/*": ["src/client/*"],
-      "@server/*": ["src/server/*"],
-      "@shared/*": ["src/shared/*"],
-      "@mcp-server/*": ["src/mcp-server/*"]
+      "@client/*": ["./src/client/*"],
+      "@server/*": ["./src/server/*"],
+      "@shared/*": ["./src/shared/*"],
+      "@mcp-server/*": ["./src/mcp-server/*"]
     }
   },
   "include": ["src", "tests"],

@@ -134,7 +134,6 @@ export function buildConnectInfo(
 } {
   const connectCommand = `oc exec -it ${podName} -n ${namespace} -- bash`;
 
-  let routeUrl: string | undefined;
   let portForwardCommand: string | undefined;
 
   if (spec.exposedPorts.length > 0) {
@@ -142,5 +141,5 @@ export function buildConnectInfo(
     portForwardCommand = `oc port-forward ${podName} ${port}:${port} -n ${namespace}`;
   }
 
-  return { connectCommand, routeUrl, portForwardCommand };
+  return { connectCommand, portForwardCommand };
 }
