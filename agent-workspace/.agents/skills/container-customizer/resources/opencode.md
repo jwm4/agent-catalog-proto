@@ -125,10 +125,14 @@ provider in the config file:
 }
 ```
 
-- `addSecret("VLLM_API_KEY", "Bearer token for the vLLM endpoint")`
 - Ask the user for the service URL and model name.
 - Set `limit.context` and `limit.output` to match the served model's
   capabilities; this controls compaction and output budgets.
+- **If the endpoint requires authentication:**
+  `addSecret("VLLM_API_KEY", "Bearer token for the vLLM endpoint")` and
+  include `"env": ["VLLM_API_KEY"]` in the provider definition as shown above.
+- **If the endpoint has no authentication:** omit the `env` field from the
+  provider definition entirely and do not register a secret.
 
 For OGX (RHOAI model gateway in front of vLLM), the setup is the same but
 the URL points to the OGX service and the model ID may be prefixed with the
@@ -251,9 +255,10 @@ requests) without confirmation.
 If the user needs the agent to push code or create PRs:
 
 - `addSecret("GITHUB_PAT", "GitHub Personal Access Token with repo scope")`
-- `setEnvVar("GIT_USER_NAME", "opencode-agent")` (or the user's preferred name)
-- `setEnvVar("GIT_USER_EMAIL", "opencode-agent@noreply.github.com")`
+- `setEnvVar("GIT_USER_NAME", "<name>")` (ask the user what name to use)
+- `setEnvVar("GIT_USER_EMAIL", "<email>")` (ask the user what email to use)
 
+Ask the user for their preferred git user name and email before setting these.
 Recommend scoping the PAT to specific repositories and using the minimum
 required permissions.
 
@@ -285,11 +290,13 @@ for observability and debugging.
 - `setEnvVar("MLFLOW_EXPERIMENT_NAME", "opencode-traces")`
 - `setEnvVar("MLFLOW_TRACKING_AUTH", "kubernetes-namespaced")`
 
-**Auto-discovering the tracking URI:** If the user is logged into OpenShift,
-suggest they run `oc get svc mlflow -n redhat-ods-applications` to find the
-MLflow service. The tracking URI is typically
-`https://mlflow.redhat-ods-applications.svc:8443/mlflow`. If they are not
-logged in, provide these instructions so they can fill in the value later.
+**Auto-discovering the tracking URI:** Run
+`oc get svc mlflow -n redhat-ods-applications` from your shell tools to check
+if the MLflow service exists. Do not ask the user to run this themselves. If
+the command succeeds, construct the tracking URI as
+`https://mlflow.redhat-ods-applications.svc:8443/mlflow` and configure it
+automatically. If the command fails (not logged in, service not found), ask the
+user for the tracking URI.
 
 **RBAC setup:** The pod's service account needs the
 `mlflow-operator-mlflow-integration` ClusterRole (shipped with RHOAI 3.4+ via
@@ -321,7 +328,7 @@ Depending on the provider, these secrets are typically needed:
 | OpenAI | `OPENAI_API_KEY` | API key from OpenAI |
 | OpenRouter | `OPENROUTER_API_KEY` | API key from OpenRouter |
 | Vertex AI | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | GCP service account key |
-| Custom/vLLM | (user-defined) | Bearer token for endpoint |
+| Custom/vLLM | (user-defined) | Bearer token for endpoint (skip if no auth) |
 | Git | `GITHUB_PAT` | GitHub Personal Access Token |
 
 Always register secrets with `addSecret(name, description)`. Direct the user

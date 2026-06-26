@@ -5,10 +5,14 @@ model (vLLM, OGX, or any OpenAI-compatible endpoint) instead of a cloud API.
 
 ## Tested Models
 
-These models have been validated with agentic coding workloads:
+These models have been validated with agentic coding workloads. The names below
+are registry identifiers (org/model format). The actual model ID served by vLLM
+may differ depending on how the admin configured `--served-model-name`. Always
+query `{base_url}/v1/models` to get the exact served model ID rather than using
+these names directly.
 
-| Model | Size | Context | Notes |
-|-------|------|---------|-------|
+| Model (registry name) | Size | Context | Notes |
+|-----------------------|------|---------|-------|
 | openai/gpt-oss-120b | 120B | 131K | Well-tested, strong tool use |
 | RedHatAI/Qwen3.6-35B-A3B-NVFP4 | 35B (quantized) | 131K | Good balance of quality and resources |
 | Qwen/Qwen3-235B-A22B | 235B (MoE) | 131K | Large capacity |
@@ -27,7 +31,20 @@ tests and catch its own mistakes.
 
 ## Context Window Configuration
 
-**Always ask the user what context window their model is configured with.**
+**Auto-discover when possible.** Query the model endpoint directly to find the
+served model ID and configured context window:
+
+```bash
+curl -s {base_url}/v1/models | jq '.data[0] | {id, max_model_len}'
+```
+
+Run this from your shell tools using the endpoint URL the user provided. Do not
+ask the user to run curl themselves. Use the returned `id` as the model ID in
+configuration (it may differ from the registry name in the table above). Use
+`max_model_len` as the context window. If the request fails (e.g., network
+error, endpoint not reachable from your host), fall back to asking the user for
+the model ID and context window.
+
 The context values in the table above are theoretical maximums. The actual
 context window depends on GPU memory and how vLLM is launched (the
 `--max-model-len` flag). Do not assume a value.
@@ -96,17 +113,36 @@ Set all three aliases to the served model ID:
 - `setEnvVar("ANTHROPIC_DEFAULT_SONNET_MODEL", "<model-id>")`
 - `setEnvVar("ANTHROPIC_DEFAULT_OPUS_MODEL", "<model-id>")`
 
-**vLLM direct:** Use bare model ID, e.g., `openai/gpt-oss-120b`
-**OGX gateway:** Use prefixed format, e.g., `vllm/openai/gpt-oss-120b`
+Use the exact model ID from `/v1/models` (e.g., `gpt-oss-120b`).
+For OGX, prefix with `vllm/` (e.g., `vllm/gpt-oss-120b`).
 
 ## Authentication
 
+Authentication setup depends on the harness.
+
+### Claude Code harness
+
 Use `ANTHROPIC_AUTH_TOKEN` (not `ANTHROPIC_API_KEY`) for self-hosted endpoints.
 The auth token skips interactive key confirmation prompts that would hang in a
-container. If the endpoint has no authentication, set the token to `fake`.
+container.
 
-- `addSecret("ANTHROPIC_AUTH_TOKEN", "Bearer token for the model endpoint (use 'fake' if no auth required)")`
+- `addSecret("ANTHROPIC_AUTH_TOKEN", "Bearer token for the model endpoint")`
 - `setEnvVar("ANTHROPIC_BASE_URL", "<endpoint-url>")`
+
+If the endpoint has no authentication, set the token to `fake`. Claude Code
+requires this variable to be set or it will prompt interactively, which hangs
+in a container.
+
+### OpenCode harness
+
+If the endpoint requires authentication, register a secret and reference it in
+the provider config's `env` field:
+
+- `addSecret("VLLM_API_KEY", "Bearer token for the model endpoint")`
+- Include `"env": ["VLLM_API_KEY"]` in the provider definition
+
+If the endpoint has no authentication, skip the secret entirely and omit the
+`env` field from the provider config. No placeholder value is needed.
 
 ## Endpoint URL Formats
 
