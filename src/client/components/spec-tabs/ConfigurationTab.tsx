@@ -3,25 +3,19 @@ import {
   ExpandableSection,
   Form,
   FormGroup,
-  FormSelect,
-  FormSelectOption,
   TextInput,
-  Switch,
   Content,
   ContentVariants,
 } from '@patternfly/react-core';
 import type {
-  EnvVarSpec,
   SecretSpec,
   HarnessConfigSchema,
   HarnessConfigSection,
-  HarnessConfigField,
   HarnessConfigOption,
 } from '@shared/types';
 
 interface ConfigurationTabProps {
   configSchema?: HarnessConfigSchema;
-  envVars: EnvVarSpec[];
   secrets: SecretSpec[];
   secretValues: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
@@ -51,88 +45,6 @@ function SecretField({
       />
       {description && (
         <Content component={ContentVariants.small}>{description}</Content>
-      )}
-    </FormGroup>
-  );
-}
-
-function ConfigField({
-  field,
-  envVars,
-  secrets,
-  secretValues,
-  onSecretChange,
-}: {
-  field: HarnessConfigField;
-  envVars: EnvVarSpec[];
-  secrets: SecretSpec[];
-  secretValues: Record<string, string>;
-  onSecretChange: (name: string, value: string) => void;
-}) {
-  if (field.type === 'secret') {
-    const secret = secrets.find((s) => s.name === field.name);
-    if (!secret) return null;
-    return (
-      <SecretField
-        name={field.name}
-        description={field.description}
-        value={secretValues[field.name] || ''}
-        onChange={onSecretChange}
-      />
-    );
-  }
-
-  if (field.type === 'select' && field.choices) {
-    const envVar = envVars.find((e) => e.name === field.name);
-    return (
-      <FormGroup label={field.label} fieldId={`field-${field.name}`}>
-        <FormSelect
-          id={`field-${field.name}`}
-          value={envVar?.value || field.default || ''}
-          isDisabled
-          aria-label={field.label}
-        >
-          {field.choices.map((choice) => {
-            const val = typeof choice === 'string' ? choice : choice.value;
-            const label = typeof choice === 'string' ? choice : choice.label;
-            return (
-              <FormSelectOption key={val} value={val} label={label} />
-            );
-          })}
-        </FormSelect>
-        {field.description && (
-          <Content component={ContentVariants.small}>{field.description}</Content>
-        )}
-      </FormGroup>
-    );
-  }
-
-  if (field.type === 'boolean') {
-    const envVar = envVars.find((e) => e.name === field.name);
-    const checked = envVar ? envVar.value === 'true' : field.default === 'true';
-    return (
-      <FormGroup fieldId={`field-${field.name}`}>
-        <Switch
-          id={`field-${field.name}`}
-          label={field.label}
-          isChecked={checked}
-          isDisabled
-        />
-      </FormGroup>
-    );
-  }
-
-  const envVar = envVars.find((e) => e.name === field.name);
-  return (
-    <FormGroup label={field.label} fieldId={`field-${field.name}`}>
-      <TextInput
-        id={`field-${field.name}`}
-        value={envVar?.value || field.default || ''}
-        placeholder={field.placeholder}
-        isDisabled
-      />
-      {field.description && (
-        <Content component={ContentVariants.small}>{field.description}</Content>
       )}
     </FormGroup>
   );
@@ -171,13 +83,11 @@ function OptionSecrets({
 
 function ProviderSectionContent({
   section,
-  envVars,
   secrets,
   secretValues,
   onSecretChange,
 }: {
   section: HarnessConfigSection;
-  envVars: EnvVarSpec[];
   secrets: SecretSpec[];
   secretValues: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
@@ -210,16 +120,6 @@ function ProviderSectionContent({
             secretValues={secretValues}
             onSecretChange={onSecretChange}
           />
-          {activeOption.fields?.map((f) => (
-            <ConfigField
-              key={f.name}
-              field={f}
-              envVars={envVars}
-              secrets={secrets}
-              secretValues={secretValues}
-              onSecretChange={onSecretChange}
-            />
-          ))}
         </>
       )}
     </Form>
@@ -228,18 +128,17 @@ function ProviderSectionContent({
 
 function FieldsSectionContent({
   section,
-  envVars,
   secrets,
   secretValues,
   onSecretChange,
 }: {
   section: HarnessConfigSection;
-  envVars: EnvVarSpec[];
   secrets: SecretSpec[];
   secretValues: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
 }) {
-  if (!section.fields?.length) return null;
+  const secretFields = section.fields?.filter((f) => f.type === 'secret') || [];
+  if (secretFields.length === 0) return null;
 
   return (
     <Form>
@@ -248,16 +147,19 @@ function FieldsSectionContent({
           {section.description}
         </Content>
       )}
-      {section.fields.map((f) => (
-        <ConfigField
-          key={f.name}
-          field={f}
-          envVars={envVars}
-          secrets={secrets}
-          secretValues={secretValues}
-          onSecretChange={onSecretChange}
-        />
-      ))}
+      {secretFields.map((f) => {
+        const secret = secrets.find((s) => s.name === f.name);
+        if (!secret) return null;
+        return (
+          <SecretField
+            key={f.name}
+            name={f.name}
+            description={f.description}
+            value={secretValues[f.name] || ''}
+            onChange={onSecretChange}
+          />
+        );
+      })}
     </Form>
   );
 }
@@ -305,18 +207,10 @@ function collectSchemaNames(schema: HarnessConfigSchema): Set<string> {
 }
 
 function detectChangedSection(
-  prevEnvVars: EnvVarSpec[],
   prevSecrets: SecretSpec[],
-  nextEnvVars: EnvVarSpec[],
   nextSecrets: SecretSpec[],
   nameToSection: Map<string, string>,
 ): string | null {
-  for (const env of nextEnvVars) {
-    const prev = prevEnvVars.find((e) => e.name === env.name);
-    if (!prev || prev.value !== env.value) {
-      return nameToSection.get(env.name) ?? OTHER_VARS_ID;
-    }
-  }
   for (const sec of nextSecrets) {
     const prev = prevSecrets.find((s) => s.name === sec.name);
     if (!prev) {
@@ -328,13 +222,11 @@ function detectChangedSection(
 
 export function ConfigurationTab({
   configSchema,
-  envVars,
   secrets,
   secretValues,
   onSecretChange,
 }: ConfigurationTabProps) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const prevEnvVarsRef = useRef(envVars);
   const prevSecretsRef = useRef(secrets);
 
   const nameToSection = useMemo(
@@ -347,22 +239,19 @@ export function ConfigurationTab({
 
   useEffect(() => {
     const changed = detectChangedSection(
-      prevEnvVarsRef.current,
       prevSecretsRef.current,
-      envVars,
       secrets,
       nameToSection,
     );
     if (changed) {
       setExpandedId(changed);
     }
-    prevEnvVarsRef.current = envVars;
     prevSecretsRef.current = secrets;
-  }, [envVars, secrets, nameToSection]);
+  }, [secrets, nameToSection]);
 
   if (!configSchema) {
-    if (envVars.length === 0 && secrets.length === 0) {
-      return <p>No configuration options yet.</p>;
+    if (secrets.length === 0) {
+      return <p>No secrets configured yet.</p>;
     }
 
     return (
@@ -376,23 +265,12 @@ export function ConfigurationTab({
             onChange={onSecretChange}
           />
         ))}
-        {envVars.map((env) => (
-          <FormGroup key={env.name} label={env.name} fieldId={`env-${env.name}`}>
-            <TextInput
-              id={`env-${env.name}`}
-              value={env.value}
-              isDisabled
-            />
-          </FormGroup>
-        ))}
       </Form>
     );
   }
 
   const schemaNames = collectSchemaNames(configSchema);
-  const extraEnvVars = envVars.filter((e) => !schemaNames.has(e.name));
   const extraSecrets = secrets.filter((s) => !schemaNames.has(s.name));
-  const hasOtherVars = extraEnvVars.length > 0 || extraSecrets.length > 0;
 
   return (
     <div>
@@ -401,7 +279,6 @@ export function ConfigurationTab({
         const content = section.options ? (
           <ProviderSectionContent
             section={section}
-            envVars={envVars}
             secrets={secrets}
             secretValues={secretValues}
             onSecretChange={onSecretChange}
@@ -409,7 +286,6 @@ export function ConfigurationTab({
         ) : (
           <FieldsSectionContent
             section={section}
-            envVars={envVars}
             secrets={secrets}
             secretValues={secretValues}
             onSecretChange={onSecretChange}
@@ -429,9 +305,9 @@ export function ConfigurationTab({
           </ExpandableSection>
         );
       })}
-      {hasOtherVars && (
+      {extraSecrets.length > 0 && (
         <ExpandableSection
-          toggleText="Environment Variables"
+          toggleText="Other Secrets"
           isExpanded={expandedId === OTHER_VARS_ID}
           onToggle={(_e, expanded) =>
             setExpandedId(expanded ? OTHER_VARS_ID : null)
@@ -447,19 +323,6 @@ export function ConfigurationTab({
                 value={secretValues[secret.name] || ''}
                 onChange={onSecretChange}
               />
-            ))}
-            {extraEnvVars.map((env) => (
-              <FormGroup
-                key={env.name}
-                label={env.name}
-                fieldId={`env-${env.name}`}
-              >
-                <TextInput
-                  id={`env-${env.name}`}
-                  value={env.value}
-                  isDisabled
-                />
-              </FormGroup>
             ))}
           </Form>
         </ExpandableSection>

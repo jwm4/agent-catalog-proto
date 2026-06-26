@@ -27,10 +27,7 @@ function detectChangedTab(
   prev: ContainerSpec,
   next: ContainerSpec,
 ): string | null {
-  if (
-    JSON.stringify(prev.envVars) !== JSON.stringify(next.envVars) ||
-    JSON.stringify(prev.secrets) !== JSON.stringify(next.secrets)
-  ) {
+  if (JSON.stringify(prev.secrets) !== JSON.stringify(next.secrets)) {
     return 'configuration';
   }
   if (JSON.stringify(prev.files) !== JSON.stringify(next.files)) {
@@ -115,7 +112,6 @@ export function SpecViewerPane({
           <div style={{ padding: '16px', overflow: 'auto', flex: 1 }}>
             <ConfigurationTab
               configSchema={configSchema}
-              envVars={spec.envVars}
               secrets={spec.secrets}
               secretValues={secretValues}
               onSecretChange={onSecretChange}
