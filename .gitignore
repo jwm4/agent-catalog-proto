@@ -40,3 +40,6 @@ npm-debug.log*
 # Temporary files
 tmp/
 .tmp/
+
+# Local-only files (not pushed to GitHub)
+.local/
