@@ -58,7 +58,27 @@ export function applyAddPackage(
   if (spec.runCommands.includes(cmd)) {
     return spec;
   }
-  return { ...spec, runCommands: [...spec.runCommands, cmd] };
+
+  let updated = { ...spec, runCommands: [...spec.runCommands, cmd] };
+
+  if (manager === 'pip') {
+    const allCommands = [...(spec.setupCommands || []), ...spec.runCommands];
+    const hasPip = allCommands.some(
+      (c) => c.includes('python3-pip') || c.includes('python3.') || c.includes('pip3'),
+    );
+    if (!hasPip) {
+      const installPip =
+        'microdnf install -y python3.12 python3.12-pip && microdnf clean all';
+      if (!spec.runCommands.includes(installPip)) {
+        updated = {
+          ...updated,
+          runCommands: [installPip, ...updated.runCommands.filter((c) => c !== installPip)],
+        };
+      }
+    }
+  }
+
+  return updated;
 }
 
 export function applyAddRunCommand(

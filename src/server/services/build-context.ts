@@ -1,7 +1,27 @@
 import { mkdtemp, writeFile, mkdir } from 'fs/promises';
-import { join } from 'path';
+import { join, dirname } from 'path';
 import { tmpdir } from 'os';
-import type { ContainerSpec } from '../../shared/types.js';
+import type { ContainerSpec, FileSpec, VolumeSpec } from '../../shared/types.js';
+
+export function isUnderVolume(destPath: string, volumes: VolumeSpec[]): boolean {
+  return volumes.some(
+    (v) => destPath === v.mountPath || destPath.startsWith(v.mountPath + '/'),
+  );
+}
+
+export function generateInitScript(stagedFiles: FileSpec[]): string {
+  const lines: string[] = ['#!/bin/bash'];
+  for (const file of stagedFiles) {
+    const dir = dirname(file.destPath);
+    lines.push(`mkdir -p ${dir}`);
+    lines.push(
+      `cp -n /opt/agent-init/files${file.destPath} ${file.destPath} 2>/dev/null || true`,
+    );
+  }
+  lines.push('exec "$@"');
+  lines.push('');
+  return lines.join('\n');
+}
 
 function generateContainerfile(spec: ContainerSpec): string {
   const lines: string[] = [];
@@ -48,11 +68,29 @@ function generateContainerfile(spec: ContainerSpec): string {
   }
 
   const copyFiles = spec.files.filter((f) => f.mountType === 'copy');
-  if (copyFiles.length > 0) {
+  const directFiles = copyFiles.filter(
+    (f) => !isUnderVolume(f.destPath, spec.volumes),
+  );
+  const stagedFiles = copyFiles.filter((f) =>
+    isUnderVolume(f.destPath, spec.volumes),
+  );
+
+  if (directFiles.length > 0) {
     lines.push('');
-    for (const file of copyFiles) {
+    for (const file of directFiles) {
       lines.push(`COPY ${file.sourcePath} ${file.destPath}`);
     }
+  }
+
+  if (stagedFiles.length > 0) {
+    lines.push('');
+    for (const file of stagedFiles) {
+      lines.push(
+        `COPY ${file.sourcePath} /opt/agent-init/files${file.destPath}`,
+      );
+    }
+    lines.push('COPY _init.sh /opt/agent-init/init.sh');
+    lines.push('RUN chmod +x /opt/agent-init/init.sh');
   }
 
   if (spec.exposedPorts.length > 0) {
@@ -70,7 +108,17 @@ function generateContainerfile(spec: ContainerSpec): string {
   const workdir = spec.volumes.find((v) => v.mountPath === '/workspace');
   lines.push(`WORKDIR ${workdir ? workdir.mountPath : '/home/agent'}`);
 
-  if (spec.entrypoint.length > 0) {
+  if (stagedFiles.length > 0) {
+    lines.push('');
+    lines.push('ENTRYPOINT ["/opt/agent-init/init.sh"]');
+    if (spec.entrypoint.length > 0) {
+      lines.push(
+        `CMD ${JSON.stringify([...spec.entrypoint, '-c', 'exec sleep infinity'])}`,
+      );
+    } else {
+      lines.push('CMD ["sleep", "infinity"]');
+    }
+  } else if (spec.entrypoint.length > 0) {
     lines.push('');
     lines.push(`ENTRYPOINT ${JSON.stringify(spec.entrypoint)}`);
     lines.push('CMD ["-c", "exec sleep infinity"]');
@@ -98,6 +146,14 @@ export async function assembleBuildContext(
       await mkdir(dir, { recursive: true });
       await writeFile(dest, file.content, 'utf-8');
     }
+  }
+
+  const stagedFiles = copyFiles.filter((f) =>
+    isUnderVolume(f.destPath, spec.volumes),
+  );
+  if (stagedFiles.length > 0) {
+    const initScript = generateInitScript(stagedFiles);
+    await writeFile(join(contextDir, '_init.sh'), initScript, 'utf-8');
   }
 
   return contextDir;

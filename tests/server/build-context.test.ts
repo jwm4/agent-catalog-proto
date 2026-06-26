@@ -1,7 +1,11 @@
 import { readFile, rm } from 'fs/promises';
 import { join } from 'path';
 import { existsSync } from 'fs';
-import { assembleBuildContext } from '@server/services/build-context.js';
+import {
+  assembleBuildContext,
+  isUnderVolume,
+  generateInitScript,
+} from '@server/services/build-context.js';
 import { makeSpec } from '../helpers';
 
 const tempDirs: string[] = [];
@@ -205,5 +209,240 @@ describe('generateContainerfile (via assembleBuildContext)', () => {
   it('ends with a trailing newline', async () => {
     const { containerfile } = await buildAndRead(makeSpec());
     expect(containerfile.endsWith('\n')).toBe(true);
+  });
+});
+
+describe('isUnderVolume', () => {
+  const volumes = [
+    { name: 'workspace', mountPath: '/workspace', size: '1Gi', accessMode: 'ReadWriteOnce' },
+  ];
+
+  it('returns true for paths under a volume mount', () => {
+    expect(isUnderVolume('/workspace/.opencode/config.json', volumes)).toBe(true);
+    expect(isUnderVolume('/workspace/file.txt', volumes)).toBe(true);
+  });
+
+  it('returns true for exact volume mount path', () => {
+    expect(isUnderVolume('/workspace', volumes)).toBe(true);
+  });
+
+  it('returns false for paths not under a volume mount', () => {
+    expect(isUnderVolume('/etc/config.json', volumes)).toBe(false);
+    expect(isUnderVolume('/opt/app.js', volumes)).toBe(false);
+  });
+
+  it('does not match partial path prefixes', () => {
+    expect(isUnderVolume('/workspace-data/file.txt', volumes)).toBe(false);
+  });
+});
+
+describe('generateInitScript', () => {
+  it('produces cp -n commands for each file', () => {
+    const script = generateInitScript([
+      {
+        sourcePath: 'config.json',
+        destPath: '/workspace/.opencode/config.json',
+        sourceType: 'inline',
+        content: '{}',
+        mountType: 'copy',
+      },
+    ]);
+    expect(script).toContain('#!/bin/bash');
+    expect(script).toContain('mkdir -p /workspace/.opencode');
+    expect(script).toContain(
+      'cp -n /opt/agent-init/files/workspace/.opencode/config.json /workspace/.opencode/config.json',
+    );
+    expect(script).toContain('exec "$@"');
+  });
+
+  it('handles multiple files', () => {
+    const script = generateInitScript([
+      {
+        sourcePath: 'a.json',
+        destPath: '/workspace/a.json',
+        sourceType: 'inline',
+        content: '{}',
+        mountType: 'copy',
+      },
+      {
+        sourcePath: 'b.txt',
+        destPath: '/workspace/sub/b.txt',
+        sourceType: 'inline',
+        content: 'hello',
+        mountType: 'copy',
+      },
+    ]);
+    expect(script).toContain('cp -n /opt/agent-init/files/workspace/a.json /workspace/a.json');
+    expect(script).toContain('mkdir -p /workspace/sub');
+    expect(script).toContain('cp -n /opt/agent-init/files/workspace/sub/b.txt /workspace/sub/b.txt');
+  });
+});
+
+describe('staged files (files under volume mounts)', () => {
+  const workspace = {
+    name: 'workspace',
+    mountPath: '/workspace',
+    size: '1Gi',
+    accessMode: 'ReadWriteOnce',
+  };
+
+  it('stages files under volume mounts to /opt/agent-init/files/', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain(
+      'COPY config.json /opt/agent-init/files/workspace/.opencode/config.json',
+    );
+    expect(containerfile).not.toContain('COPY config.json /workspace/');
+  });
+
+  it('copies files not under volume mounts directly', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [
+          {
+            sourcePath: 'app.js',
+            destPath: '/opt/app.js',
+            sourceType: 'inline',
+            content: 'console.log("hi")',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain('COPY app.js /opt/app.js');
+    expect(containerfile).not.toContain('/opt/agent-init/');
+  });
+
+  it('handles a mix of direct and staged files', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [
+          {
+            sourcePath: 'app.js',
+            destPath: '/opt/app.js',
+            sourceType: 'inline',
+            content: 'console.log("hi")',
+            mountType: 'copy',
+          },
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain('COPY app.js /opt/app.js');
+    expect(containerfile).toContain(
+      'COPY config.json /opt/agent-init/files/workspace/.opencode/config.json',
+    );
+  });
+
+  it('adds init script COPY and chmod when staged files exist', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain('COPY _init.sh /opt/agent-init/init.sh');
+    expect(containerfile).toContain('RUN chmod +x /opt/agent-init/init.sh');
+  });
+
+  it('wraps entrypoint with init script when staged files exist', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        entrypoint: ['/bin/bash'],
+        files: [
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain('ENTRYPOINT ["/opt/agent-init/init.sh"]');
+    expect(containerfile).toContain('CMD ["/bin/bash","-c","exec sleep infinity"]');
+    expect(containerfile).not.toContain('ENTRYPOINT ["/bin/bash"]');
+  });
+
+  it('uses init script entrypoint with CMD sleep when no original entrypoint', async () => {
+    const { containerfile } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        entrypoint: [],
+        files: [
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(containerfile).toContain('ENTRYPOINT ["/opt/agent-init/init.sh"]');
+    expect(containerfile).toContain('CMD ["sleep", "infinity"]');
+  });
+
+  it('writes _init.sh to build context when staged files exist', async () => {
+    const { dir } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [
+          {
+            sourcePath: 'config.json',
+            destPath: '/workspace/.opencode/config.json',
+            sourceType: 'inline',
+            content: '{}',
+            mountType: 'copy',
+          },
+        ],
+      }),
+    );
+    expect(existsSync(join(dir, '_init.sh'))).toBe(true);
+    const script = await readFile(join(dir, '_init.sh'), 'utf-8');
+    expect(script).toContain('#!/bin/bash');
+    expect(script).toContain('cp -n');
+    expect(script).toContain('exec "$@"');
+  });
+
+  it('does not write _init.sh when no staged files', async () => {
+    const { dir } = await buildAndRead(
+      makeSpec({
+        volumes: [workspace],
+        files: [],
+      }),
+    );
+    expect(existsSync(join(dir, '_init.sh'))).toBe(false);
   });
 });

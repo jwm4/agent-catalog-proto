@@ -84,7 +84,7 @@ router.post('/api/build', async (req, res) => {
     });
     sendEvent({ type: 'status', phase: 'pending' });
     sendEvent({ type: 'log', line: `Ensuring namespace ${namespace} exists...` });
-    ensureNamespaceExists(namespace);
+    await ensureNamespaceExists(namespace);
 
     contextDir = await assembleBuildContext(spec);
     sendEvent({ type: 'log', line: 'Build context assembled' });
@@ -105,6 +105,7 @@ router.post('/api/build', async (req, res) => {
       sendEvent({ type: 'log', line });
     }
 
+    await buildBackend.verifyBuild(name, namespace);
     const imageRef = await buildBackend.getImageRef(name, namespace);
 
     updateBuildStatus(sessionId, {
