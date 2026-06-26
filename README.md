@@ -4,21 +4,31 @@ A working prototype of the Agent Catalog for Red Hat OpenShift AI (RHOAI).
 Browse a catalog of AI coding agent harnesses, customize container images
 through an AI-guided conversation, and deploy to OpenShift.
 
+![Agent Catalog screenshot showing the AI chat customizing an OpenCode container](docs/screenshot.png)
+
+## How It Works
+
+1. **Browse** the catalog of agent harnesses
+2. **Select** a harness (e.g. OpenCode) to start a customization session
+3. **Chat** with the AI agent to configure your container: add packages, set up
+   LLM providers, configure MCP servers, manage secrets
+4. **Review** the generated Containerfile and configuration in real time
+5. **Build and deploy** the customized container image to your OpenShift cluster
+
 ## Supported Harnesses
 
-| Harness    | Status     | License    |
-|------------|------------|------------|
-| OpenCode   | First      | MIT        |
-| Claude Code| Planned    | Proprietary|
-| OpenClaw   | Planned    | MIT        |
-| Codex      | Planned    | MIT        |
+| Harness     | Status  |
+|-------------|---------|
+| OpenCode    | Working |
+| Claude Code | Planned |
+| OpenClaw    | Planned |
+| Codex       | Planned |
 
 ## Prerequisites
 
 - Node.js 22+
 - `oc` CLI installed and logged into an OpenShift cluster (for build/deploy)
-- Google Cloud credentials (ADC) configured for Vertex AI (for the AI chat)
-- [Goose](https://github.com/aaif-goose/goose) (auto-downloaded on first run)
+- [Goose](https://github.com/block/goose) CLI (`brew install block-goose-cli`)
 
 ## Setup
 
@@ -31,29 +41,32 @@ npm install
 ## Usage
 
 ```bash
-# Start both frontend and backend
+# Start both frontend and backend (separate terminals)
 npm run dev      # Frontend (Vite) on http://localhost:5173
-npm run server   # Backend (Express) in a separate terminal
+npm run server   # Backend (Express) on http://localhost:3001
 ```
 
-Open http://localhost:5173 in a browser to browse the agent catalog, select a
-harness, customize it through the AI chat, and deploy to your OpenShift cluster.
+Open http://localhost:5173 to browse the catalog, select a harness, customize
+it through the AI chat, and build/deploy to your OpenShift cluster.
+
+## Tech Stack
+
+- **Frontend:** React 18, PatternFly 6, @patternfly/chatbot
+- **Backend:** Node.js, Express (TypeScript)
+- **AI agent:** Goose (goosed REST+SSE server) with MCP tool support
+- **ContainerSpec tools:** Custom MCP server (TypeScript, in-process)
+- **Build/deploy:** OpenShift BuildConfig (Docker strategy, binary source)
+- **Bundler:** Vite
+- **Tests:** Vitest
 
 ## Development
 
 ```bash
-# Start the frontend dev server
-npm run dev
-
-# Start the backend server (separate terminal)
-npm run server
-
-# Run tests
-npm test
-
-# Lint and type-check
-npm run lint
-npm run typecheck
+npm run dev        # Frontend dev server (HMR)
+npm run server     # Backend server
+npm test           # Run tests
+npm run lint       # Lint
+npm run typecheck  # Type-check
 ```
 
 ## Project Structure
