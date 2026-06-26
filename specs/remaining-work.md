@@ -1,6 +1,6 @@
 # Remaining Work
 
-**Date:** 2026-06-23
+**Date:** 2026-06-24
 **Context:** Phases 1-3 are complete. Phase 4 is mostly done (skill structure
 in place, behavioral guidance written, but delivered as a workaround). Phase 5
 is partially done. Phase 6 is not started.
@@ -35,7 +35,18 @@ AI configuration and build/deploy separately, but not the full path where the
 AI conversation produces a complex configuration that is then built and
 deployed.
 
-### Test scenarios to run
+### Testing done so far
+
+- OpenCode with Java (Gradle) project and self-hosted vLLM: conversation
+  flow tested, found and fixed duplicate Gradle install bug (dedup guards),
+  Anthropic default bias (removed `default: true`), context window guidance
+  issues (restructured docs), and build failure from missing `await` on
+  namespace creation. Build currently being retested (2026-06-24).
+- Self-hosted model (vLLM) configuration flow tested multiple times. Found
+  and improved: context window auto-discovery, per-harness auth guidance,
+  unauthenticated endpoint handling.
+
+### Test scenarios still needed
 
 1. **OpenCode with a Python project:** Tell the agent you're working on a
    Python 3.12 project with FastAPI, pytest, and ruff. Verify the agent adds
@@ -69,39 +80,34 @@ deployed.
 - Secret values are not logged or leaked in build output
 - Errors surface clearly in the UI, not silent failures
 
-## Priority 2: Typing indicator through full response
+## ~~Priority 2: Typing indicator through full response~~ DONE
 
-The chat loading indicator (`isLoading`) currently clears on the first text
-chunk or tool call. It should persist until the SSE stream sends `[DONE]`,
-so the user sees the AI is still working during multi-tool-call sequences.
+Resolved 2026-06-23. The `isLoading` spinner now persists on the active bot
+message until the SSE stream completes. Only cleared in the `finally` block
+and error handlers.
 
-**Files:** `src/client/components/ChatPane.tsx`
-**Scope:** Small change, mainly adjusting when `isLoading` is set to `false`.
+## ~~Priority 3: Error handling in AI conversation~~ DONE
 
-## Priority 3: Error handling in AI conversation
+Resolved 2026-06-23. Added empty response detection (shows "The agent didn't
+respond" message) and network error handling during welcome polling (shows
+"Unable to connect to the agent" after 30 failed attempts). Malformed SSE
+events are silently skipped. Tool call result validation deferred.
 
-The chat pane has minimal error handling. If goosed returns an error, times
-out, or the SSE stream drops, the user gets no feedback.
+## ~~Priority 4: Viewable file contents in Files tab~~ DONE
 
-- Show an error message in the chat when goosed is unreachable
-- Handle SSE stream disconnects gracefully (retry or show message)
-- Handle malformed SSE events without crashing the chat
-- Show a message if the AI's response is empty or truncated
-- Validate that tool call results make sense (e.g., baseImage shouldn't be
-  empty after an addPackage call)
+Resolved 2026-06-23. Inline files expand in the Files tab using PatternFly
+expandable table rows with `CodeBlock` content display. Files without inline
+content (local/URL sourced) are not expandable.
 
-**Files:** `src/client/components/ChatPane.tsx`, possibly
-`src/server/services/goose.ts`
+## ~~Priority 4.5: Build failure from missing await~~ DONE
 
-## Priority 4: Viewable file contents in Files tab
-
-Clicking a file in the Files tab should expand or open a read-only view of
-its content. For inline files (e.g., generated config.json), the content is
-already in the ContainerSpec. For local or URL-sourced files, the backend
-fetches and returns the content on demand.
-
-**Files:** `src/client/components/spec-tabs/FilesTab.tsx`, possibly a new
-backend endpoint for non-inline files.
+Resolved 2026-06-24. `ensureNamespaceExists()` in `build.ts` was not awaited,
+so `prepare()` ran before the namespace existed. The ImageStream `oc apply`
+failed silently (error swallowed by try/catch), then `oc start-build` failed
+with "InvalidOutputReference: Output image could not be resolved." Fix: added
+`await`, removed silent error swallowing from `build-backend.ts` (oc apply is
+idempotent), and added stderr capture to `ocApplyStdin` for better error
+messages.
 
 ## Priority 5: Dark mode and theme switching
 
@@ -119,6 +125,12 @@ OpenClaw exposes port 3000 (web UI) and uses SQLite (needs block storage).
 Codex requires an OpenAI API key. Verify the generated manifests, Service,
 and Route work correctly for harnesses with exposed ports.
 
+When adding a second harness, extract harness-agnostic content from
+`opencode.md` into shared resource files. MLflow tracing, self-hosted model
+auth, and RBAC setup are not OpenCode-specific and should be reusable across
+harnesses. `self-hosted-models.md` is already shared; do the same for MLflow
+and any other cross-cutting sections.
+
 ## Priority 7: Shipwright Build support
 
 The build layer (`src/server/services/build-backend.ts`) has a
@@ -134,20 +146,20 @@ Observed issues during testing (2026-06-23):
 
 - **Dumps checklists** instead of asking one question at a time
 - **Installs packages without asking**, violating "Recommend, then act"
-- **Duplicate tool calls** (e.g., installing Gradle twice, which caused a
-  build failure). A code-level dedup guard was added to `tools.ts`, but the
-  agent should not be making duplicate calls in the first place.
-- **Anthropic shown as "default" provider** when asking about LLM providers.
-  OpenCode has no real default. The config schema (`opencode.ts`) marks
-  Anthropic with `default: true`, which leaks into the prompt.
+- ~~**Duplicate tool calls** (e.g., installing Gradle twice, which caused a
+  build failure).~~ MITIGATED: code-level dedup guards added to
+  `applyAddRunCommand` and `applyAddPackage` in `tools.ts`. The agent may
+  still make duplicate calls, but they are now idempotent.
+- ~~**Anthropic shown as "default" provider.**~~ FIXED: removed `default: true`
+  from Anthropic in `opencode.ts`.
 
-This may partly be a consequence of Priority 0 (guidance delivered as a user
-message rather than a native skill). Revisit after native skill delivery is
-available. If the issues persist, consider whether the guidance needs to be
-shorter and more direct, or whether the model needs explicit few-shot examples.
+Remaining issues (checklist dumping, unprompted installs) may partly be a
+consequence of Priority 0 (guidance delivered as a user message rather than a
+native skill). Revisit after native skill delivery is available. If the issues
+persist, consider whether the guidance needs to be shorter and more direct, or
+whether the model needs explicit few-shot examples.
 
-**Files:** `agent-workspace/.agents/skills/container-customizer/SKILL.md`,
-`src/shared/harness-configs/opencode.ts` (remove `default: true`)
+**Files:** `agent-workspace/.agents/skills/container-customizer/SKILL.md`
 
 ## Priority 9: MLflow auto-discovery and web UI link
 
