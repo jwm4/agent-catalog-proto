@@ -255,13 +255,14 @@ requests) without confirmation.
 If the user needs the agent to push code or create PRs:
 
 - `addSecret("GITHUB_PAT", "GitHub Personal Access Token with repo scope")`
-- `setEnvVar("GIT_USER_NAME", "<name>")` (ask the user what name to use)
-- `setEnvVar("GIT_USER_EMAIL", "<email>")` (ask the user what email to use)
+- `setEnvVar("GIT_USER_NAME", "<name>")` (ask the user how their name should appear in commits)
+- `setEnvVar("GIT_USER_EMAIL", "<email>")` (ask the user for their email address for commits)
 
-Ask the user for their preferred git user name and email before setting these.
-Do not suggest or offer generic defaults. Wait for the user to provide their
-actual name and email. Recommend scoping the PAT to specific repositories and
-using the minimum required permissions.
+Ask the user how their name should appear on git commits (this is a display
+name, e.g. "Jane Smith") and what email address to use. Do not suggest or
+offer generic defaults. Wait for the user to provide these values. Recommend
+scoping the PAT to specific repositories and using the minimum required
+permissions.
 
 ## Persistence
 
