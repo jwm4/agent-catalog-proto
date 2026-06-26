@@ -47,6 +47,16 @@ npx tsc --noEmit path/to/file.ts
 npm run format
 ```
 
+## Restarting Dev Servers
+
+Do not use `lsof -ti :<port> | xargs kill` to stop dev servers. Other
+processes have connections to the same port (Vite proxies through 3001,
+browsers connect to 5173), so killing by port takes down unrelated processes.
+
+Use `-sTCP:LISTEN` to target only the listening server, not its clients:
+- Backend: `lsof -ti :3001 -sTCP:LISTEN | xargs kill`
+- Vite: `lsof -ti :5173 -sTCP:LISTEN | xargs kill`
+
 ## Commit Messages
 
 Use conventional commits. Format: `type(scope): description`
