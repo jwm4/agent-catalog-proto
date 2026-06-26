@@ -55,7 +55,8 @@ export async function ensureGoose(): Promise<string> {
     );
   } catch (err) {
     throw new Error(
-      `Failed to download goose. Install manually: brew install block-goose-cli\n${err}`,
+      'Failed to download goose. Install manually: brew install block-goose-cli',
+      { cause: err },
     );
   }
 
