@@ -1274,8 +1274,8 @@ Decisions made during spec development, recorded here for context.
 ## 10. References
 
 - Mockup screenshot: `specs/agent_cat.png`
-- Claude Code starter kit: `/Users/bmurdock/git/agentic-starter-kits/agents/claude-code/`
-- OpenClaw installer: `/Users/bmurdock/claw-installer-test/openclaw-installer/`
+- Claude Code starter kit: https://github.com/red-hat-data-services/agentic-starter-kits/blob/main/agents/claude-code
+- OpenClaw installer: https://github.com/sallyom/claw-installer/
 - Goose (AI agent): https://github.com/aaif-goose/goose
 - Goose docs: https://goose-docs.ai
 - Goose server API: https://www.mintlify.com/block/goose/api/server/overview
