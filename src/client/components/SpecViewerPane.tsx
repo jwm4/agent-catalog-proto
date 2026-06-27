@@ -9,7 +9,7 @@ import {
   EmptyStateBody,
   PageSection,
 } from '@patternfly/react-core';
-import type { ContainerSpec, HarnessConfigSchema } from '@shared/types';
+import type { ContainerSpec, FileSpec, HarnessConfigSchema } from '@shared/types';
 import { ConfigurationTab } from './spec-tabs/ConfigurationTab';
 import { FilesTab } from './spec-tabs/FilesTab';
 import { VolumesTab } from './spec-tabs/VolumesTab';
@@ -22,6 +22,7 @@ interface SpecViewerPaneProps {
   onSecretChange: (name: string, value: string) => void;
   configSchema?: HarnessConfigSchema;
   baselineContainerfile?: string | null;
+  baselineFiles?: FileSpec[] | null;
 }
 
 function detectChangedTab(
@@ -63,9 +64,11 @@ function findChangedLines(
   }
   const changed = new Set<number>();
   for (let i = 0; i < newLines.length; i++) {
-    const remaining = counts.get(newLines[i]);
+    const line = newLines[i];
+    if (!line.trim()) continue;
+    const remaining = counts.get(line);
     if (remaining && remaining > 0) {
-      counts.set(newLines[i], remaining - 1);
+      counts.set(line, remaining - 1);
     } else {
       changed.add(i);
     }
@@ -80,6 +83,7 @@ export function SpecViewerPane({
   onSecretChange,
   configSchema,
   baselineContainerfile,
+  baselineFiles,
 }: SpecViewerPaneProps) {
   const [activeTab, setActiveTab] = useState<string | number>('containerfile');
   const prevSpecRef = useRef<ContainerSpec | null>(null);
@@ -169,7 +173,7 @@ export function SpecViewerPane({
         </Tab>
         <Tab eventKey="files" title={<TabTitleText>Files</TabTitleText>}>
           <div style={{ padding: '16px', overflow: 'auto', flex: 1 }}>
-            <FilesTab files={spec.files} />
+            <FilesTab files={spec.files} baselineFiles={baselineFiles} />
           </div>
         </Tab>
         <Tab eventKey="volumes" title={<TabTitleText>Volumes</TabTitleText>}>
