@@ -12,8 +12,9 @@ import {
   PageSection,
   TextInput,
 } from '@patternfly/react-core';
-import type { ContainerSpec, BuildPhase, DeploymentInfo } from '@shared/types';
+import type { ContainerSpec, BuildPhase, DeploymentInfo, FileSpec } from '@shared/types';
 import { getHarnessById } from '@shared/harnesses';
+import { generateContainerfile } from '@client/utils/containerfile';
 import { ChatPane } from '@client/components/ChatPane';
 import { SpecViewerPane } from '@client/components/SpecViewerPane';
 import {
@@ -68,6 +69,10 @@ export function CustomizePage() {
   const [secretValues, setSecretValues] = useState<Record<string, string>>({});
   const [showBuildPanel, setShowBuildPanel] = useState(false);
   const [buildState, setBuildState] = useState<BuildState>(initialBuildState);
+  const [baselineContainerfile, setBaselineContainerfile] = useState<
+    string | null
+  >(null);
+  const [baselineFiles, setBaselineFiles] = useState<FileSpec[] | null>(null);
   const [namespace, setNamespace] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
   const buildAbortRef = useRef<AbortController | null>(null);
@@ -84,6 +89,13 @@ export function CustomizePage() {
   const handleSecretChange = useCallback((name: string, value: string) => {
     setSecretValues((prev) => ({ ...prev, [name]: value }));
   }, []);
+
+  const handleUserMessage = useCallback(() => {
+    if (spec) {
+      setBaselineContainerfile(generateContainerfile(spec));
+      setBaselineFiles([...spec.files]);
+    }
+  }, [spec]);
 
   useEffect(() => {
     if (!id) return;
@@ -400,6 +412,7 @@ export function CustomizePage() {
                   onSendReady={(fn) => {
                     chatSendRef.current = fn;
                   }}
+                  onUserMessage={handleUserMessage}
                 />
               </div>
             </CardBody>
@@ -421,6 +434,8 @@ export function CustomizePage() {
                   secretValues={secretValues}
                   onSecretChange={handleSecretChange}
                   configSchema={harness.configSchema}
+                  baselineContainerfile={baselineContainerfile}
+                  baselineFiles={baselineFiles}
                 />
               </CardBody>
             </Card>
@@ -453,7 +468,10 @@ export function CustomizePage() {
               <Button
                 variant="primary"
                 isDisabled={
-                  !sessionId || !spec || showBuildPanel || !namespace
+                  !sessionId ||
+                  !spec ||
+                  (showBuildPanel && buildState.stage !== 'error') ||
+                  !namespace
                 }
                 onClick={startBuildAndDeploy}
               >

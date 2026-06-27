@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import {
   Button,
@@ -42,14 +42,23 @@ import {
   InfoCircleIcon,
   OutlinedMoonIcon,
   RobotIcon,
+  OutlinedSunIcon,
   UserIcon,
 } from '@patternfly/react-icons';
 
 export function AppLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(
+    () => localStorage.getItem('theme') === 'dark',
+  );
   const location = useLocation();
   const navigate = useNavigate();
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('pf-v6-theme-dark', isDarkMode);
+    localStorage.setItem('theme', isDarkMode ? 'dark' : 'light');
+  }, [isDarkMode]);
 
   const isAgentsActive =
     location.pathname === '/' || location.pathname.startsWith('/agents');
@@ -162,8 +171,9 @@ export function AppLayout({ children }: { children: React.ReactNode }) {
               <ToolbarItem>
                 <Button
                   variant="plain"
-                  aria-label="Dark mode"
-                  icon={<OutlinedMoonIcon />}
+                  aria-label={isDarkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+                  icon={isDarkMode ? <OutlinedSunIcon /> : <OutlinedMoonIcon />}
+                  onClick={() => setIsDarkMode((prev) => !prev)}
                 />
               </ToolbarItem>
             </ToolbarGroup>

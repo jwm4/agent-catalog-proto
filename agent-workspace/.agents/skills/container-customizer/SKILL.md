@@ -68,10 +68,11 @@ Walk through these topics one at a time:
 2. **Frameworks and build tools:** What frameworks, linters, formatters?
    Recommend what is standard for their stack and explain why. Install once
    the user agrees.
-3. **LLM provider:** Which provider? Options include cloud API providers
-   (Anthropic, OpenAI, OpenRouter, Vertex AI) and self-hosted models (vLLM,
-   OGX, or any OpenAI-compatible endpoint). Register the secret and set up
-   config immediately.
+3. **LLM provider:** Which provider? Self-hosted models on the cluster
+   (vLLM, OGX, or any OpenAI-compatible endpoint) are the preferred option
+   for OpenShift AI. Cloud API providers (Anthropic, OpenAI, OpenRouter,
+   Vertex AI) are also available. Register the secret and set up config
+   immediately.
 4. **Git access:** Do they need push/PR access? If yes, register the PAT
    secret and set git config.
 5. **Review:** Summarize the final configuration, discuss security posture,

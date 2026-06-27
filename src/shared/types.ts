@@ -60,6 +60,7 @@ export interface DeploymentInfo {
   connectCommand?: string;
   routeUrl?: string;
   portForwardCommand?: string;
+  mlflowUrl?: string;
   error?: string;
 }
 

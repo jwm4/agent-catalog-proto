@@ -18,13 +18,14 @@ interface ChatPaneProps {
   sessionId: string | null;
   harnessName?: string;
   onSendReady?: (sendFn: (msg: string) => void) => void;
+  onUserMessage?: () => void;
 }
 
 const FALLBACK_GREETING =
   "Hello! I can help you customize your container image. " +
   "What kind of project will your agent be working on?";
 
-export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady }: ChatPaneProps) {
+export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady, onUserMessage }: ChatPaneProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'bot', content: '', isLoading: true },
   ]);
@@ -106,6 +107,8 @@ export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady }: 
 
       const text = String(messageText).trim();
       if (!text) return;
+
+      onUserMessage?.();
 
       const userMsgId = `msg-${++msgCounter.current}`;
       const placeholderId = `msg-${++msgCounter.current}`;
@@ -278,7 +281,7 @@ export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady }: 
         setIsStreaming(false);
       }
     },
-    [sessionId, isStreaming],
+    [sessionId, isStreaming, onUserMessage],
   );
 
   useEffect(() => {

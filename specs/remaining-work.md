@@ -102,6 +102,28 @@ Implementation would need:
 
 ## Medium priority
 
+### Auto-discover available models on the cluster
+
+When the user wants to connect to a self-hosted model on the RHOAI cluster,
+the agent currently asks them to paste the service URL manually. Instead,
+the agent should be able to discover what InferenceService or ServingRuntime
+resources are already running on the cluster and present them as options.
+The user can then pick a discovered model or enter a custom URL for an
+external endpoint.
+
+Implementation would need:
+- An MCP tool or shell command to list InferenceService resources across
+  accessible namespaces (e.g., `oc get inferenceservice -A`)
+- Parsing the results to extract model names and internal service URLs
+- Presenting the discovered models to the user as choices in the
+  conversation
+- Falling back to manual URL entry if no models are found or the user wants
+  a different endpoint
+
+**Files:** `agent-workspace/.agents/skills/container-customizer/SKILL.md`,
+`agent-workspace/.agents/skills/container-customizer/resources/opencode.md`,
+possibly a new MCP tool in `src/server/mcp-server/`
+
 ### Reconsider the Configuration tab
 
 The Configuration tab was trimmed to avoid duplicating content shown in other
@@ -191,6 +213,31 @@ The build layer (`src/server/services/build-backend.ts`) has a
 `ShipwrightBackend` implementation that uses Shipwright Build/BuildRun CRDs
 instead of OpenShift BuildConfig. This is lower priority since BuildConfig
 works fine for the prototype.
+
+### Agent memory for learned lessons
+
+The agent should maintain a memory file where it stores critical lessons
+learned during conversations. When a build fails, the agent should analyze
+whether there is a general lesson (e.g., "Gradle requires JDK, not just
+JRE") and persist it so future sessions benefit. Memory should also support
+other kinds of learned knowledge (user preferences, common patterns, etc.).
+
+At scale, memories fall into two categories:
+- **Global memories** that apply to all users (e.g., "microdnf does not have
+  package X, use npm instead")
+- **Per-user memories** that are specific to one user's environment or
+  preferences
+
+The prototype only needs to handle the single-user case, but the design
+should have a credible story for multi-user. Possible approach: global
+memories stored in a shared file within the agent workspace, per-user
+memories keyed by a user identifier and stored separately. The agent reads
+both at session start and appends during the session.
+
+**Files:** `agent-workspace/.agents/skills/container-customizer/SKILL.md`
+(guidance on when/how to write memories), new memory file(s) in
+`agent-workspace/`, `src/server/services/instruction-assembler.ts`
+(load memories into the agent context)
 
 ### Native Goose skill delivery in ACP mode (blocked upstream)
 
