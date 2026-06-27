@@ -182,6 +182,19 @@ export function BuildDeployPanel({
                 </ClipboardCopy>
               </div>
             )}
+
+            {deploymentInfo.mlflowUrl && (
+              <div style={{ marginBottom: '0.5rem' }}>
+                <strong>MLflow:</strong>{' '}
+                <a
+                  href={deploymentInfo.mlflowUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  {deploymentInfo.mlflowUrl}
+                </a>
+              </div>
+            )}
           </div>
         )}
 

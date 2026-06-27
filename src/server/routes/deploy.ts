@@ -14,6 +14,7 @@ import {
   applyManifests,
   waitForReady,
   buildConnectInfo,
+  lookupMlflowUrl,
 } from '../services/deploy-service.js';
 import type { ManifestSet } from '../services/deploy-service.js';
 import { detectNamespace } from '../services/build-backend.js';
@@ -89,7 +90,10 @@ router.post('/api/deploy', async (req, res) => {
 
     const { podName } = await waitForReady(name, namespace);
 
-    const connectInfo = buildConnectInfo(podName, namespace, spec);
+    const [connectInfo, mlflowUrl] = await Promise.all([
+      Promise.resolve(buildConnectInfo(podName, namespace, spec)),
+      lookupMlflowUrl(),
+    ]);
 
     updateDeploymentInfo(sessionId, {
       sessionId,
@@ -99,6 +103,7 @@ router.post('/api/deploy', async (req, res) => {
       imageRef: buildStatus.imageRef,
       podName,
       ...connectInfo,
+      mlflowUrl,
     });
 
     res.json({

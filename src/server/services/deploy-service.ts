@@ -123,6 +123,20 @@ export async function waitForReady(
   );
 }
 
+export async function lookupMlflowUrl(): Promise<string | undefined> {
+  try {
+    const result = await objectApi.read({
+      apiVersion: 'console.openshift.io/v1',
+      kind: 'ConsoleLink',
+      metadata: { name: 'mlflow' },
+    });
+    const href = (result as { spec?: { href?: string } }).spec?.href;
+    return href || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildConnectInfo(
   podName: string,
   namespace: string,
