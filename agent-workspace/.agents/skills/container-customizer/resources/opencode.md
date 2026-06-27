@@ -35,12 +35,16 @@ them again.
 ## OpenCode Configuration File
 
 OpenCode reads its configuration from a JSON file. In a container, the best
-location is `/workspace/.opencode/config.json`. Use `addFile` to place it:
+location is `/workspace/.opencode/opencode.json`. Use `addFile` to place it:
 
 ```
-addFile("opencode-config.json", "/workspace/.opencode/config.json", "inline",
+addFile("opencode.json", "/workspace/.opencode/opencode.json", "inline",
   JSON.stringify(configObject, null, 2))
 ```
+
+**Important:** The file must be named `opencode.json` (or `opencode.jsonc`),
+NOT `config.json`. OpenCode only loads `config.json` from its global config
+directory, not from project-level `.opencode/` directories.
 
 Build up the config object throughout the conversation as the user makes
 choices (provider, model, MCP servers, permissions, etc.), then write it as
@@ -52,13 +56,13 @@ Key top-level fields:
 | Field | Purpose |
 |-------|---------|
 | `model` | Default model, format `provider/alias` (e.g., `anthropic/sonnet`) |
-| `providers` | Custom or self-hosted provider definitions |
-| `mcp` | MCP server configuration |
-| `permissions` | Tool permission rules |
-| `agents` | Per-agent overrides (model, system prompt, steps) |
+| `provider` | Custom or self-hosted provider definitions |
+| `mcp` | MCP server configuration (flat record, not nested under `servers`) |
+| `permission` | Tool permission rules |
+| `agent` | Per-agent overrides (model, system prompt, steps) |
 | `instructions` | Paths to instruction files to load automatically |
 | `shell` | Default shell (e.g., `bash`, `zsh`) |
-| `snapshots` | Enable undo/revert snapshots (boolean) |
+| `snapshot` | Enable undo/revert snapshots (boolean) |
 
 ## LLM Provider Setup
 
@@ -97,19 +101,20 @@ OpenRouter provides access to many models through a single API.
 ### Custom / Self-Hosted (vLLM, OGX)
 
 For users running their own model server on OpenShift, define a custom
-provider in the config file:
+provider in the config file. vLLM and OGX expose an OpenAI-compatible API,
+so use `@ai-sdk/openai-compatible` as the npm package:
 
 ```json
 {
   "model": "my-vllm/my-model",
-  "providers": {
+  "provider": {
     "my-vllm": {
       "name": "Self-hosted vLLM",
+      "npm": "@ai-sdk/openai-compatible",
       "env": ["VLLM_API_KEY"],
-      "api": {
-        "type": "native",
-        "url": "http://vllm-service.<namespace>.svc.cluster.local/v1",
-        "settings": {}
+      "options": {
+        "baseURL": "http://vllm-service.<namespace>.svc.cluster.local/v1",
+        "apiKey": "{env:VLLM_API_KEY}"
       },
       "models": {
         "my-model": {
@@ -126,17 +131,23 @@ provider in the config file:
 ```
 
 - Ask the user for the service URL and model name.
+- The `npm` field must be `"@ai-sdk/openai-compatible"` for vLLM/OGX endpoints.
 - Set `limit.context` and `limit.output` to match the served model's
   capabilities; this controls compaction and output budgets.
 - **If the endpoint requires authentication:**
   `addSecret("VLLM_API_KEY", "Bearer token for the vLLM endpoint")` and
-  include `"env": ["VLLM_API_KEY"]` in the provider definition as shown above.
-- **If the endpoint has no authentication:** omit the `env` field from the
-  provider definition entirely and do not register a secret.
+  include `"env": ["VLLM_API_KEY"]` and `"options.apiKey": "{env:VLLM_API_KEY}"`
+  in the provider definition as shown above.
+- **If the endpoint has no authentication:** omit the `env` field, omit
+  `options.apiKey`, and do not register a secret.
 
 For OGX (RHOAI model gateway in front of vLLM), the setup is the same but
 the URL points to the OGX service and the model ID may be prefixed with the
 backend name (e.g., `vllm/my-model`).
+
+**Variable syntax:** Use `{env:VAR_NAME}` (not `${VAR_NAME}`) to reference
+environment variables in config values. OpenCode expands `{env:...}` tokens
+at config load time.
 
 ## Model Selection
 
@@ -155,8 +166,8 @@ Override per-agent (e.g., use a cheaper model for subagents):
 ```json
 {
   "model": "anthropic/sonnet",
-  "agents": {
-    "code": { "model": "anthropic/opus" }
+  "agent": {
+    "build": { "model": "anthropic/opus" }
   }
 }
 ```
@@ -165,18 +176,17 @@ Override per-agent (e.g., use a cheaper model for subagents):
 
 OpenCode supports MCP (Model Context Protocol) servers to extend agent
 capabilities. Configure them in the `mcp` section of the config file.
+MCP entries are directly under `mcp` (not nested under `mcp.servers`).
 
 ### Local MCP server (stdio transport)
 
 ```json
 {
   "mcp": {
-    "servers": {
-      "filesystem": {
-        "type": "local",
-        "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
-        "environment": { "DEBUG": "false" }
-      }
+    "filesystem": {
+      "type": "local",
+      "command": ["npx", "-y", "@modelcontextprotocol/server-filesystem", "/workspace"],
+      "environment": { "DEBUG": "false" }
     }
   }
 }
@@ -190,61 +200,64 @@ child of OpenCode and communicates via stdio.
 ```json
 {
   "mcp": {
-    "servers": {
-      "github": {
-        "type": "remote",
-        "url": "https://api.githubcopilot.com/mcp/",
-        "headers": {
-          "Authorization": "Bearer ${GITHUB_PAT}"
-        }
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_PAT}"
       }
     }
   }
 }
 ```
 
-Token references like `${GITHUB_PAT}` are expanded from environment variables
-at runtime, so register them as secrets.
+Use `{env:VAR_NAME}` syntax for environment variable references. OpenCode
+expands these at config load time. Register the variables as secrets:
+`addSecret("GITHUB_PAT", "GitHub Personal Access Token")`.
 
 ### MCP server options
 
 Both local and remote servers support:
-- `disabled` (boolean): temporarily disable without removing
+- `enabled` (boolean): set to false to temporarily disable without removing
 - `timeout` (integer, ms): per-server timeout override
-
-Global MCP timeout: `{ "mcp": { "timeout": 30000 } }`
 
 ## Permissions
 
 OpenCode's permission system controls which tools the agent can use without
-asking. Configure in the `permissions` field as an array of rules:
+asking. Configure in the `permission` field as a map of tool names to rules:
 
 ```json
 {
-  "permissions": [
-    { "action": "Bash", "resource": "npm install *", "effect": "allow" },
-    { "action": "Bash", "resource": "git push *", "effect": "ask" },
-    { "action": "Bash", "resource": "rm -rf *", "effect": "deny" },
-    { "action": "Read", "resource": "/workspace/**", "effect": "allow" }
-  ]
+  "permission": {
+    "Bash": {
+      "npm install *": "allow",
+      "git push *": "ask",
+      "rm -rf *": "deny"
+    },
+    "Read": "allow",
+    "Write": "allow"
+  }
 }
 ```
 
-Each rule has:
-- `action`: tool name (e.g., `Bash`, `Read`, `Write`)
-- `resource`: glob pattern for the argument
-- `effect`: `"allow"`, `"deny"`, or `"ask"`
+Each entry maps a tool name to either:
+- A single action: `"allow"`, `"deny"`, or `"ask"`
+- A map of glob patterns to actions
 
 For sandboxed containers where the agent runs non-interactively, a permissive
 default is common:
 
 ```json
 {
-  "permissions": [
-    { "action": "*", "resource": "*", "effect": "allow" }
-  ]
+  "tools": {
+    "Bash": true,
+    "Read": true,
+    "Write": true
+  }
 }
 ```
+
+The `tools` field is a shorthand: `true` allows, `false` denies.
 
 Discuss the security tradeoff with the user: permissive permissions let the
 agent work autonomously but mean it can make external calls (git push, API
@@ -345,22 +358,19 @@ Here is a full example for Anthropic with a GitHub MCP server:
 {
   "model": "anthropic/sonnet",
   "mcp": {
-    "servers": {
-      "github": {
-        "type": "remote",
-        "url": "https://api.githubcopilot.com/mcp/",
-        "headers": {
-          "Authorization": "Bearer ${GITHUB_PAT}"
-        }
+    "github": {
+      "type": "remote",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer {env:GITHUB_PAT}"
       }
     }
   },
-  "permissions": [
-    { "action": "Bash", "resource": "npm *", "effect": "allow" },
-    { "action": "Bash", "resource": "git *", "effect": "allow" },
-    { "action": "Read", "resource": "/workspace/**", "effect": "allow" },
-    { "action": "Write", "resource": "/workspace/**", "effect": "allow" }
-  ],
-  "snapshots": true
+  "permission": {
+    "Bash": "allow",
+    "Read": "allow",
+    "Write": "allow"
+  },
+  "snapshot": true
 }
 ```
