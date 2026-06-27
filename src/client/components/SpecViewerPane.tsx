@@ -21,6 +21,7 @@ interface SpecViewerPaneProps {
   secretValues: Record<string, string>;
   onSecretChange: (name: string, value: string) => void;
   configSchema?: HarnessConfigSchema;
+  baselineContainerfile?: string | null;
 }
 
 function detectChangedTab(
@@ -50,12 +51,35 @@ function detectChangedTab(
   return null;
 }
 
+function findChangedLines(
+  baseline: string,
+  current: string,
+): Set<number> {
+  const oldLines = baseline.split('\n');
+  const newLines = current.split('\n');
+  const counts = new Map<string, number>();
+  for (const line of oldLines) {
+    counts.set(line, (counts.get(line) || 0) + 1);
+  }
+  const changed = new Set<number>();
+  for (let i = 0; i < newLines.length; i++) {
+    const remaining = counts.get(newLines[i]);
+    if (remaining && remaining > 0) {
+      counts.set(newLines[i], remaining - 1);
+    } else {
+      changed.add(i);
+    }
+  }
+  return changed;
+}
+
 export function SpecViewerPane({
   sessionId,
   spec,
   secretValues,
   onSecretChange,
   configSchema,
+  baselineContainerfile,
 }: SpecViewerPaneProps) {
   const [activeTab, setActiveTab] = useState<string | number>('containerfile');
   const prevSpecRef = useRef<ContainerSpec | null>(null);
@@ -87,6 +111,11 @@ export function SpecViewerPane({
   }
 
   const containerfile = generateContainerfile(spec);
+  const changedLines =
+    baselineContainerfile != null
+      ? findChangedLines(baselineContainerfile, containerfile)
+      : null;
+  const containerfileLines = containerfile.split('\n');
 
   return (
     <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
@@ -101,7 +130,27 @@ export function SpecViewerPane({
         >
           <div style={{ padding: '16px', overflow: 'auto', flex: 1 }}>
             <CodeBlock>
-              <CodeBlockCode>{containerfile}</CodeBlockCode>
+              <CodeBlockCode>
+                {changedLines && changedLines.size > 0
+                  ? containerfileLines.map((line, i) => (
+                      <div
+                        key={i}
+                        style={
+                          changedLines.has(i)
+                            ? {
+                                backgroundColor: 'rgba(62, 134, 53, 0.15)',
+                                borderLeft: '3px solid var(--pf-t--global--color--status--success--default, #3e8635)',
+                                paddingLeft: '8px',
+                                marginLeft: '-11px',
+                              }
+                            : undefined
+                        }
+                      >
+                        {line || ' '}
+                      </div>
+                    ))
+                  : containerfile}
+              </CodeBlockCode>
             </CodeBlock>
           </div>
         </Tab>
