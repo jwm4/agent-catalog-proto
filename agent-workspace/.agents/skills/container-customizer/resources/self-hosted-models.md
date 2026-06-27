@@ -21,13 +21,14 @@ these names directly.
 | openai/gpt-oss-20b | 20B | up to 128K | Fits on smaller GPUs |
 | meta-llama/Llama-3.1-8B-Instruct | 8B | 128K | Small, fast, good for testing |
 
-## Quality Warning
+## Quality Considerations
 
-Agentic coding tools are optimized for frontier models (Claude, GPT-4). Open
-source models may produce lower quality results, particularly for complex
-multi-step tasks, tool use chains, and large codebases. Recommend including
-language runtimes and test frameworks in the container so the agent can run
-tests and catch its own mistakes.
+Self-hosted models keep data on the cluster and avoid external API
+dependencies. Larger open source models (70B+) handle agentic coding tasks
+well, especially with sufficient context window. Smaller models may need more
+guidance and produce less reliable results for complex multi-step tasks.
+Recommend including language runtimes and test frameworks in the container so
+the agent can run tests and validate its own work regardless of model size.
 
 ## Context Window Configuration
 
@@ -55,9 +56,15 @@ agent will autocompact constantly and lose track of context. 32K is a last
 resort, not a reasonable default.
 
 **Recommend 128K** as the target. If the user's setup supports it, use 128K
-settings. If they are constrained to 32K, warn them that the agent will
-struggle with multi-turn coding tasks and suggest they consider a larger
-context window or a cloud API provider instead.
+settings. If the discovered context window is small (e.g., 32K), explain
+that the agent will struggle with multi-turn coding tasks and suggest
+options in this order:
+1. The cluster admin can redeploy this model with a larger `--max-model-len`
+   if the GPU has enough memory
+2. A different self-hosted model with a larger context window may be
+   available on the cluster
+3. Cloud API providers (Anthropic, OpenAI) offer 200K+ context as a
+   fallback if no self-hosted option works
 
 ### Configuration (Claude Code harness)
 
@@ -86,7 +93,7 @@ Set context limits in the OpenCode config file under the model definition:
 
 ```json
 {
-  "providers": {
+  "provider": {
     "my-vllm": {
       "models": {
         "my-model": {
@@ -174,15 +181,21 @@ user does not have an OGX endpoint, recommend connecting directly to vLLM.
 
 ## Choosing a Model
 
+Self-hosted models are the preferred path for Red Hat OpenShift AI. They keep
+data on-cluster, avoid external API costs, and work in air-gapped
+environments. Cloud API providers are a valid alternative, not the default
+recommendation.
+
 When the user is unsure which model to use, ask about:
 
-1. **Quality vs speed tradeoff** (larger models are better but slower)
+1. **What models are already deployed** on their cluster (start here)
 2. **Context window needs** (large codebases need more context)
-3. **What models are already deployed** on their cluster
+3. **Quality vs speed tradeoff** (larger models are better but slower)
 
-If quality is the top priority, recommend a cloud API provider (Anthropic,
-OpenAI) instead of self-hosted. For self-hosted, larger models generally
-produce better agentic coding results.
+For self-hosted, larger models generally produce better agentic coding
+results. If the user's cluster does not have a suitable model deployed,
+suggest they work with their cluster admin to serve one, or consider a
+cloud API provider as a fallback.
 
 ## Common Issues
 
