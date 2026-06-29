@@ -159,6 +159,16 @@ export function applySetEntrypoint(
   return { ...spec, entrypoint: command };
 }
 
+export function applyAddExposedPort(
+  spec: ContainerSpec,
+  port: number,
+): ContainerSpec {
+  if (spec.exposedPorts.includes(port)) {
+    return spec;
+  }
+  return { ...spec, exposedPorts: [...spec.exposedPorts, port] };
+}
+
 export function applyAddLabel(
   spec: ContainerSpec,
   key: string,

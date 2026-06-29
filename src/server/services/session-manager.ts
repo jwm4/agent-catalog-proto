@@ -6,6 +6,12 @@ import type {
   DeploymentInfo,
 } from '../../shared/types.js';
 
+interface PendingAskUser {
+  resolve: (selection: string) => void;
+  reject: (err: Error) => void;
+  timeout: ReturnType<typeof setTimeout>;
+}
+
 interface SessionState {
   id: string;
   harnessId: string;
@@ -16,6 +22,7 @@ interface SessionState {
   deploymentInfo?: DeploymentInfo;
   secretValues?: Record<string, string>;
   welcomeMessage?: string;
+  pendingAskUser?: PendingAskUser;
 }
 
 const sessions = new Map<string, SessionState>();
@@ -163,4 +170,45 @@ export function setWelcomeMessage(sessionId: string, message: string): void {
 
 export function getWelcomeMessage(sessionId: string): string | undefined {
   return sessions.get(sessionId)?.welcomeMessage;
+}
+
+const ASK_USER_TIMEOUT_MS = 5 * 60 * 1000;
+
+export function createAskUser(
+  sessionId: string,
+  question: string,
+  options: string[],
+): Promise<string> {
+  const session = sessions.get(sessionId);
+  if (!session) return Promise.reject(new Error('Session not found'));
+
+  if (session.pendingAskUser) {
+    clearTimeout(session.pendingAskUser.timeout);
+    session.pendingAskUser.reject(new Error('Superseded by new question'));
+    session.pendingAskUser = undefined;
+  }
+
+  return new Promise<string>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      session.pendingAskUser = undefined;
+      reject(new Error('User did not respond in time'));
+    }, ASK_USER_TIMEOUT_MS);
+
+    session.pendingAskUser = { resolve, reject, timeout };
+
+    broadcast(session, { type: 'ask-user', question, options });
+  });
+}
+
+export function resolveAskUser(
+  sessionId: string,
+  selection: string,
+): boolean {
+  const session = sessions.get(sessionId);
+  if (!session?.pendingAskUser) return false;
+
+  clearTimeout(session.pendingAskUser.timeout);
+  session.pendingAskUser.resolve(selection);
+  session.pendingAskUser = undefined;
+  return true;
 }

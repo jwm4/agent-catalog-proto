@@ -108,17 +108,28 @@ function generateContainerfile(spec: ContainerSpec): string {
   const workdir = spec.volumes.find((v) => v.mountPath === '/workspace');
   lines.push(`WORKDIR ${workdir ? workdir.mountPath : '/home/agent'}`);
 
+  const isShellEntrypoint =
+    spec.entrypoint.length > 0 &&
+    ['/bin/bash', '/bin/sh', 'bash', 'sh'].includes(spec.entrypoint[0]);
+  const isCustomEntrypoint =
+    spec.entrypoint.length > 0 && !isShellEntrypoint;
+
   if (stagedFiles.length > 0) {
     lines.push('');
     lines.push('ENTRYPOINT ["/opt/agent-init/init.sh"]');
-    if (spec.entrypoint.length > 0) {
+    if (isCustomEntrypoint) {
+      lines.push(`CMD ${JSON.stringify(spec.entrypoint)}`);
+    } else if (isShellEntrypoint) {
       lines.push(
         `CMD ${JSON.stringify([...spec.entrypoint, '-c', 'exec sleep infinity'])}`,
       );
     } else {
       lines.push('CMD ["sleep", "infinity"]');
     }
-  } else if (spec.entrypoint.length > 0) {
+  } else if (isCustomEntrypoint) {
+    lines.push('');
+    lines.push(`ENTRYPOINT ${JSON.stringify(spec.entrypoint)}`);
+  } else if (isShellEntrypoint) {
     lines.push('');
     lines.push(`ENTRYPOINT ${JSON.stringify(spec.entrypoint)}`);
     lines.push('CMD ["-c", "exec sleep infinity"]');

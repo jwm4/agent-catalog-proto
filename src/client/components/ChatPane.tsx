@@ -14,18 +14,76 @@ interface ChatMessage {
   isLoading?: boolean;
 }
 
+interface AskUserPrompt {
+  question: string;
+  options: string[];
+}
+
 interface ChatPaneProps {
   sessionId: string | null;
   harnessName?: string;
   onSendReady?: (sendFn: (msg: string) => void) => void;
   onUserMessage?: () => void;
+  askUserPrompt?: AskUserPrompt | null;
+  onAskUserResponse?: (selection: string) => void;
 }
 
 const FALLBACK_GREETING =
   "Hello! I can help you customize your container image. " +
   "What kind of project will your agent be working on?";
 
-export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady, onUserMessage }: ChatPaneProps) {
+function AskUserOptions({
+  options,
+  onSelect,
+}: {
+  options: string[];
+  onSelect: (selection: string) => void;
+}) {
+  const [customText, setCustomText] = useState('');
+
+  return (
+    <div style={{ padding: '8px 16px 16px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+        {options.map((opt) => (
+          <button
+            key={opt}
+            type="button"
+            className="pf-v6-c-button pf-m-secondary"
+            onClick={() => onSelect(opt)}
+          >
+            {opt}
+          </button>
+        ))}
+      </div>
+      <div style={{ display: 'flex', gap: '8px' }}>
+        <input
+          className="pf-v6-c-form-control"
+          type="text"
+          aria-label="Custom response"
+          placeholder="Or type your own answer..."
+          value={customText}
+          onChange={(e) => setCustomText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && customText.trim()) {
+              onSelect(customText.trim());
+            }
+          }}
+          style={{ flex: 1 }}
+        />
+        <button
+          type="button"
+          className="pf-v6-c-button pf-m-primary"
+          disabled={!customText.trim()}
+          onClick={() => onSelect(customText.trim())}
+        >
+          Send
+        </button>
+      </div>
+    </div>
+  );
+}
+
+export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady, onUserMessage, askUserPrompt, onAskUserResponse }: ChatPaneProps) {
   const [messages, setMessages] = useState<ChatMessage[]>([
     { id: 'welcome', role: 'bot', content: '', isLoading: true },
   ]);
@@ -38,7 +96,33 @@ export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady, on
 
   useEffect(() => {
     scrollAnchorRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, askUserPrompt]);
+
+  useEffect(() => {
+    if (!askUserPrompt) return;
+    const questionMsgId = `msg-${++msgCounter.current}`;
+    setMessages((prev) => {
+      const cleaned = prev
+        .map((m) => (m.isLoading ? { ...m, isLoading: false } : m))
+        .filter((m) => !(m.role === 'bot' && !m.content.trim() && m.id !== 'welcome'));
+      return [
+        ...cleaned,
+        { id: questionMsgId, role: 'bot', content: askUserPrompt.question, isLoading: false },
+      ];
+    });
+  }, [askUserPrompt]);
+
+  const handleAskUserSelect = useCallback(
+    (selection: string) => {
+      const userMsgId = `msg-${++msgCounter.current}`;
+      setMessages((prev) => [
+        ...prev,
+        { id: userMsgId, role: 'user', content: selection },
+      ]);
+      onAskUserResponse?.(selection);
+    },
+    [onAskUserResponse],
+  );
 
   useEffect(() => {
     if (!sessionId) return;
@@ -310,6 +394,12 @@ export function ChatPane({ sessionId, harnessName: _harnessName, onSendReady, on
                 name={msg.role === 'user' ? 'You' : 'Agent'}
               />
             ))}
+            {askUserPrompt && (
+              <AskUserOptions
+                options={askUserPrompt.options}
+                onSelect={handleAskUserSelect}
+              />
+            )}
             <div ref={scrollAnchorRef} />
           </MessageBox>
         </ChatbotContent>

@@ -8,6 +8,8 @@ import {
   setWelcomeMessage,
   getWelcomeMessage,
   getBuildStatus,
+  createAskUser,
+  resolveAskUser,
 } from '../services/session-manager.js';
 import {
   isGoosedRunning,
@@ -163,6 +165,53 @@ router.get('/api/session/:id/build-logs', async (req, res) => {
     totalLines: buildStatus.logLines.length,
     logLines: lines,
   });
+});
+
+router.post('/api/session/:id/ask-user', async (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  const { question, options } = req.body as {
+    question?: string;
+    options?: string[];
+  };
+  if (!question || !options || options.length < 2) {
+    res.status(400).json({ error: 'question and options (2+) are required' });
+    return;
+  }
+
+  try {
+    const selection = await createAskUser(req.params.id, question, options);
+    res.json({ response: selection });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    res.status(408).json({ error: msg });
+  }
+});
+
+router.post('/api/session/:id/ask-user-response', async (req, res) => {
+  const session = getSession(req.params.id);
+  if (!session) {
+    res.status(404).json({ error: 'Session not found' });
+    return;
+  }
+
+  const { selection } = req.body as { selection?: string };
+  if (!selection) {
+    res.status(400).json({ error: 'selection is required' });
+    return;
+  }
+
+  const resolved = resolveAskUser(req.params.id, selection);
+  if (!resolved) {
+    res.status(404).json({ error: 'No pending question for this session' });
+    return;
+  }
+
+  res.json({ ok: true });
 });
 
 export default router;

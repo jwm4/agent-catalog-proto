@@ -52,19 +52,6 @@ provider.
 
 ## High demo impact
 
-### OpenCode web UI deployment option
-
-OpenCode has a web UI mode in addition to its terminal TUI. Offer an option
-to deploy OpenCode with the web UI exposed via an OpenShift Route, so users
-can access it from a browser instead of logging into a terminal. This should
-be optional since some users prefer the terminal. Implementation would need
-the correct OpenCode startup command for web/serve mode, an exposed port
-(and corresponding Service/Route), and possibly authentication in front of
-the Route.
-
-**Files:** `src/shared/harnesses.ts` (opencode harness config),
-`agent-workspace/.agents/skills/container-customizer/resources/opencode.md`,
-`src/server/services/deploy.ts` (Route generation)
 
 ### Test and refine the repo-based workflow
 
@@ -214,6 +201,29 @@ The build layer (`src/server/services/build-backend.ts`) has a
 instead of OpenShift BuildConfig. This is lower priority since BuildConfig
 works fine for the prototype.
 
+### Session persistence and history
+
+When the user navigates away from a session and returns, the session starts
+fresh with no memory of the previous conversation or spec. Sessions should
+persist so the user can resume where they left off. Beyond that, a session
+history mechanism would let users browse past sessions, see what configs they
+built, and redeploy a working configuration without reconfiguring from
+scratch.
+
+Considerations:
+- **Session persistence:** Store session state (spec, chat history,
+  deployment info) so navigating back restores everything.
+- **Session list UI:** A page or sidebar showing past sessions with harness
+  name, timestamp, and deploy status.
+- **Redeploy from history:** Click a past session to view its spec and
+  redeploy it, possibly with modifications.
+- **Storage:** For the prototype, server-side in-memory with a simple JSON
+  file backup is sufficient. Production would need a database.
+
+**Files:** `src/server/services/session-manager.ts` (persistence),
+`src/client/pages/` (session list UI), `src/server/routes/session.ts`
+(list/restore endpoints)
+
 ### Agent memory for learned lessons
 
 The agent should maintain a memory file where it stores critical lessons
@@ -238,6 +248,17 @@ both at session start and appends during the session.
 (guidance on when/how to write memories), new memory file(s) in
 `agent-workspace/`, `src/server/services/instruction-assembler.ts`
 (load memories into the agent context)
+
+### Reload cluster credentials without restart
+
+The backend loads the kubeconfig once at startup. If the user runs `oc login`
+after the server is already running, the backend's Kubernetes client keeps the
+stale token and deploy requests fail with 401 Unauthorized. The simplest fix
+is to reload the kubeconfig before each cluster call. Cluster calls only
+happen during build and deploy, so the overhead is negligible.
+
+**Files:** `src/server/services/deploy-service.ts`,
+`src/server/services/build-backend.ts`
 
 ### Native Goose skill delivery in ACP mode (blocked upstream)
 
@@ -386,3 +407,12 @@ Resolved 2026-06-27. The skill resource file tells the agent to run
 URI rather than asking the user to paste it. If the command fails, the agent
 falls back to asking. The post-deploy MLflow web UI link is tracked
 separately.
+
+### OpenCode web UI deployment
+
+Resolved 2026-06-27. OpenCode always deploys with the web UI enabled via an
+OpenShift Route. Users can access it via browser or `oc exec` into the
+terminal; both work simultaneously. Fixed entrypoint bug where `-c exec sleep
+infinity` was appended to non-shell entrypoints, and config file placement
+(global path at `~/.config/opencode/opencode.json` instead of project-level,
+which requires a git repo). Password protection is optional.
