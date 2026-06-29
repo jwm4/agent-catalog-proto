@@ -12,6 +12,7 @@ import {
   applyAddFile,
   applyAddVolume,
   applySetEntrypoint,
+  applyAddExposedPort,
   applyAddLabel,
 } from './tools.js';
 
@@ -225,6 +226,74 @@ server.tool(
     return {
       content: [{ type: 'text', text: `Added label ${key}=${value}` }],
     };
+  },
+);
+
+server.tool(
+  'addExposedPort',
+  'Expose a container port. Creates a Service and Route for external access when deployed.',
+  { port: z.number().describe('Port number to expose (e.g., 3000)') },
+  async ({ port }) => {
+    spec = applyAddExposedPort(spec, port);
+    await pushSpecUpdate();
+    return {
+      content: [{ type: 'text', text: `Exposed port ${port}` }],
+    };
+  },
+);
+
+server.tool(
+  'askUser',
+  'Present a question with clickable options to the user and wait for their selection. Use this when offering 2-6 discrete choices. The question text is shown as a chat message, so include enough context for the user to choose.',
+  {
+    question: z.string().describe('The question to present, with context to help the user decide'),
+    options: z
+      .array(z.string())
+      .min(2)
+      .describe('List of options the user can choose from'),
+  },
+  async ({ question, options }) => {
+    if (!SESSION_ID) {
+      return {
+        content: [{ type: 'text' as const, text: 'No session available' }],
+        isError: true,
+      };
+    }
+
+    try {
+      const res = await fetch(
+        `${BACKEND_URL}/api/session/${SESSION_ID}/ask-user`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ question, options }),
+        },
+      );
+
+      if (!res.ok) {
+        const err = (await res.json()) as { error?: string };
+        return {
+          content: [
+            {
+              type: 'text' as const,
+              text: err.error || 'askUser request failed',
+            },
+          ],
+          isError: true,
+        };
+      }
+
+      const data = (await res.json()) as { response: string };
+      return {
+        content: [{ type: 'text' as const, text: data.response }],
+      };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return {
+        content: [{ type: 'text' as const, text: `askUser error: ${msg}` }],
+        isError: true,
+      };
+    }
   },
 );
 

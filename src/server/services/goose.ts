@@ -399,11 +399,14 @@ export async function sendMessage(
             }
 
             if (update.sessionUpdate === 'tool_call' && update.title) {
-              expressRes.write(`data: ${JSON.stringify({
-                type: 'tool_call',
-                toolName: update.title,
-                args: update.rawInput || {},
-              })}\n\n`);
+              const toolLabel = update.title.replace(/^containerspec:\s*/, '');
+              if (toolLabel !== 'askUser') {
+                expressRes.write(`data: ${JSON.stringify({
+                  type: 'tool_call',
+                  toolName: update.title,
+                  args: update.rawInput || {},
+                })}\n\n`);
+              }
             }
           }
 

@@ -73,6 +73,10 @@ export function CustomizePage() {
     string | null
   >(null);
   const [baselineFiles, setBaselineFiles] = useState<FileSpec[] | null>(null);
+  const [askUserPrompt, setAskUserPrompt] = useState<{
+    question: string;
+    options: string[];
+  } | null>(null);
   const [namespace, setNamespace] = useState('');
   const wsRef = useRef<WebSocket | null>(null);
   const buildAbortRef = useRef<AbortController | null>(null);
@@ -89,6 +93,23 @@ export function CustomizePage() {
   const handleSecretChange = useCallback((name: string, value: string) => {
     setSecretValues((prev) => ({ ...prev, [name]: value }));
   }, []);
+
+  const handleAskUserResponse = useCallback(
+    async (selection: string) => {
+      if (!sessionId) return;
+      setAskUserPrompt(null);
+      try {
+        await fetch(`/api/session/${sessionId}/ask-user-response`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ selection }),
+        });
+      } catch (err) {
+        console.error('Failed to send ask-user response:', err);
+      }
+    },
+    [sessionId],
+  );
 
   const handleUserMessage = useCallback(() => {
     if (spec) {
@@ -148,9 +169,21 @@ export function CustomizePage() {
         const data = JSON.parse(event.data as string) as {
           type: string;
           spec?: ContainerSpec;
+          question?: string;
+          options?: string[];
         };
         if (data.type === 'spec-update' && data.spec) {
           setSpec(data.spec);
+        }
+        if (
+          data.type === 'ask-user' &&
+          data.question &&
+          data.options
+        ) {
+          setAskUserPrompt({
+            question: data.question,
+            options: data.options,
+          });
         }
       } catch {
         console.error('Failed to parse WebSocket message');
@@ -413,6 +446,8 @@ export function CustomizePage() {
                     chatSendRef.current = fn;
                   }}
                   onUserMessage={handleUserMessage}
+                  askUserPrompt={askUserPrompt}
+                  onAskUserResponse={handleAskUserResponse}
                 />
               </div>
             </CardBody>
