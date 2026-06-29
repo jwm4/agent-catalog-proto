@@ -137,6 +137,28 @@ export async function lookupMlflowUrl(): Promise<string | undefined> {
   }
 }
 
+export async function lookupRouteUrl(
+  routeName: string,
+  namespace: string,
+): Promise<string | undefined> {
+  try {
+    const result = await objectApi.read({
+      apiVersion: 'route.openshift.io/v1',
+      kind: 'Route',
+      metadata: { name: routeName, namespace },
+    });
+    const ingress = (
+      result as {
+        status?: { ingress?: Array<{ host?: string }> };
+      }
+    ).status?.ingress;
+    const host = ingress?.[0]?.host;
+    return host ? `https://${host}` : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 export function buildConnectInfo(
   podName: string,
   namespace: string,

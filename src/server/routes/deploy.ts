@@ -14,6 +14,7 @@ import {
   applyManifests,
   waitForReady,
   buildConnectInfo,
+  lookupRouteUrl,
   lookupMlflowUrl,
 } from '../services/deploy-service.js';
 import type { ManifestSet } from '../services/deploy-service.js';
@@ -90,8 +91,9 @@ router.post('/api/deploy', async (req, res) => {
 
     const { podName } = await waitForReady(name, namespace);
 
-    const [connectInfo, mlflowUrl] = await Promise.all([
+    const [connectInfo, routeUrl, mlflowUrl] = await Promise.all([
       Promise.resolve(buildConnectInfo(podName, namespace, spec)),
+      lookupRouteUrl(name, namespace),
       lookupMlflowUrl(),
     ]);
 
@@ -103,6 +105,7 @@ router.post('/api/deploy', async (req, res) => {
       imageRef: buildStatus.imageRef,
       podName,
       ...connectInfo,
+      routeUrl,
       mlflowUrl,
     });
 

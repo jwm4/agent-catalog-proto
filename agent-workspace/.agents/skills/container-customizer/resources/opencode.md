@@ -32,19 +32,41 @@ them again.
   setup. You can see it in the Volumes tab.
 - **Entrypoint:** `/bin/bash` by default. User can customize.
 
+## Web UI Setup
+
+OpenCode is always deployed with its web UI enabled. The user can access it
+via the browser (through the OpenShift Route) or via `oc exec` into the
+terminal. Both work simultaneously. Set this up automatically after
+language/tools configuration, no need to ask the user:
+
+1. `setEntrypoint(["opencode", "web", "--hostname", "0.0.0.0", "--port", "3000"])`
+2. `addExposedPort(3000)` (creates a Service and Route automatically)
+
+The `--hostname 0.0.0.0` is required so the server listens on all interfaces
+(not just localhost). Port 3000 is conventional.
+
+**Password protection is optional.** If the user wants to secure the web UI,
+ask and then add `addSecret("OPENCODE_SERVER_PASSWORD", "Password for OpenCode web UI login")`.
+If they skip it, OpenCode runs without a login prompt. For demos or internal
+clusters, skipping the password is fine.
+
+
 ## OpenCode Configuration File
 
-OpenCode reads its configuration from a JSON file. In a container, the best
-location is `/workspace/.opencode/opencode.json`. Use `addFile` to place it:
+OpenCode reads its configuration from a JSON file. Use the global config
+location so the settings apply regardless of which directory OpenCode starts
+in. The global path is `$HOME/.config/opencode/opencode.json`. In our
+container, HOME is `/home/agent`, so the full path is
+`/home/agent/.config/opencode/opencode.json`. Use `addFile` to place it:
 
 ```
-addFile("opencode.json", "/workspace/.opencode/opencode.json", "inline",
+addFile("opencode.json", "/home/agent/.config/opencode/opencode.json", "inline",
   JSON.stringify(configObject, null, 2))
 ```
 
-**Important:** The file must be named `opencode.json` (or `opencode.jsonc`),
-NOT `config.json`. OpenCode only loads `config.json` from its global config
-directory, not from project-level `.opencode/` directories.
+Do NOT use the project-level path (`/workspace/.opencode/opencode.json`).
+OpenCode only loads project-level config when it detects a git repository in
+the working directory, which may not exist yet in a fresh container.
 
 Build up the config object throughout the conversation as the user makes
 choices (provider, model, MCP servers, permissions, etc.), then write it as
@@ -345,6 +367,7 @@ Depending on the provider, these secrets are typically needed:
 | Vertex AI | `GOOGLE_APPLICATION_CREDENTIALS_JSON` | GCP service account key |
 | Custom/vLLM | (user-defined) | Bearer token for endpoint (skip if no auth) |
 | Git | `GITHUB_PAT` | GitHub Personal Access Token |
+| Web UI | `OPENCODE_SERVER_PASSWORD` | Password for web UI login (optional) |
 
 Always register secrets with `addSecret(name, description)`. Direct the user
 to enter the actual values in the **Configuration tab** on the right side of the

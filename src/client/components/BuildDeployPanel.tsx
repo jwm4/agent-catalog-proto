@@ -156,29 +156,35 @@ export function BuildDeployPanel({
               namespace <strong>{deploymentInfo.namespace}</strong>.
             </Alert>
 
+            {deploymentInfo.routeUrl && (
+              <div style={{ marginBottom: '0.75rem' }}>
+                <strong>Web UI:</strong>
+                <div style={{ marginTop: '4px' }}>
+                  <a
+                    href={deploymentInfo.routeUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {deploymentInfo.routeUrl}
+                  </a>
+                </div>
+              </div>
+            )}
+
             {deploymentInfo.connectCommand && (
               <div style={{ marginBottom: '0.5rem' }}>
-                <strong>Connect:</strong>
+                <strong>{deploymentInfo.routeUrl ? 'Shell access:' : 'Connect:'}</strong>
                 <ClipboardCopy isReadOnly style={{ marginTop: '4px' }}>
                   {deploymentInfo.connectCommand}
                 </ClipboardCopy>
               </div>
             )}
 
-            {deploymentInfo.portForwardCommand && (
+            {deploymentInfo.portForwardCommand && !deploymentInfo.routeUrl && (
               <div style={{ marginBottom: '0.5rem' }}>
                 <strong>Port forward:</strong>
                 <ClipboardCopy isReadOnly style={{ marginTop: '4px' }}>
                   {deploymentInfo.portForwardCommand}
-                </ClipboardCopy>
-              </div>
-            )}
-
-            {deploymentInfo.routeUrl && (
-              <div style={{ marginBottom: '0.5rem' }}>
-                <strong>Route:</strong>
-                <ClipboardCopy isReadOnly style={{ marginTop: '4px' }}>
-                  {deploymentInfo.routeUrl}
                 </ClipboardCopy>
               </div>
             )}
